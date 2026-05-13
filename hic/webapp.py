@@ -11,6 +11,7 @@ import secrets
 import shlex
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 
@@ -291,35 +292,67 @@ def _read_codex_status_cache(path: Path, max_age_seconds: int) -> dict[str, Any]
     return data
 
 
+def _codex_status_summary(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "available": True,
+        "label": str(data.get("label") or "Codex /status: available"),
+        "title": str(data.get("title") or ""),
+    }
+
+
+def _write_codex_status_cache(path: Path, status: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "label": status.get("label") or "Codex /status: available",
+                "title": status.get("title") or "",
+                "fetched_at": status.get("fetched_at") or "",
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _refresh_codex_status_cache(root: Path, cache_path: Path, lock_path: Path) -> None:
+    try:
+        status = _run_codex_status(root)
+        if status:
+            _write_codex_status_cache(cache_path, status)
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _schedule_codex_status_refresh(root: Path, cache_path: Path) -> None:
+    run_dir = cache_path.parent
+    run_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = run_dir / "codex_status_refresh.lock"
+    if lock_path.exists() and time.time() - lock_path.stat().st_mtime < 60:
+        return
+    lock_path.write_text(iso(), encoding="ascii")
+    thread = threading.Thread(
+        target=_refresh_codex_status_cache,
+        args=(root, cache_path, lock_path),
+        daemon=True,
+        name="hic-codex-status-refresh",
+    )
+    thread.start()
+
+
 def codex_usage_summary(root: Path) -> dict[str, Any]:
     cache_path = root / "var" / "run" / "codex_status_cache.json"
-    cached = _read_codex_status_cache(cache_path, max_age_seconds=120)
+    cached = _read_codex_status_cache(cache_path, max_age_seconds=3600)
     if cached:
-        return {
-            "available": True,
-            "label": str(cached.get("label") or "Codex /status: available"),
-            "title": str(cached.get("title") or ""),
-        }
-    status = _run_codex_status(root)
-    if status:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(
-            json.dumps(
-                {
-                    "label": status.get("label") or "Codex /status: available",
-                    "title": status.get("title") or "",
-                    "fetched_at": status.get("fetched_at") or "",
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            ),
-            encoding="utf-8",
-        )
-        return {
-            "available": True,
-            "label": str(status.get("label") or "Codex /status: available"),
-            "title": str(status.get("title") or ""),
-        }
+        if time.time() - cache_path.stat().st_mtime > 120:
+            _schedule_codex_status_refresh(root, cache_path)
+        return _codex_status_summary(cached)
+
+    _schedule_codex_status_refresh(root, cache_path)
 
     input_sum = 0
     output_sum = 0

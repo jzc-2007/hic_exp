@@ -99,3 +99,6 @@
 - Added a manual Ops -> Restart HIC action that schedules a full daemon/web/
   daily-update restart after the page response returns, giving self-evolve work
   a safe outside restart path.
+- Fixed slow page loads caused by synchronous topbar Codex `/status` probes:
+  pages now use cached/fallback status immediately and refresh the Codex status
+  cache in the background.

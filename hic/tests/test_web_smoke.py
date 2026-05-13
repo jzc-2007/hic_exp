@@ -153,12 +153,21 @@ def test_only_latest_wake_message_shows_working(sample_root):
 
 def test_codex_status_timeout_falls_back_without_500(sample_root, monkeypatch):
     monkeypatch.setenv("HIC_CODEX_CMD", "/bin/echo exec -")
+    scheduled = {}
 
     def fake_run(*args, **kwargs):
+        scheduled["sync_run"] = True
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
 
+    def fake_schedule(root, cache_path):
+        scheduled["root"] = root
+        scheduled["cache_path"] = cache_path
+
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("hic.webapp._schedule_codex_status_refresh", fake_schedule)
     summary = codex_usage_summary(sample_root)
+    assert "sync_run" not in scheduled
+    assert scheduled["root"] == sample_root
     assert summary["available"] is False
     assert summary["label"] == "Codex /status: -"
 
