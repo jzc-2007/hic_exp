@@ -18,7 +18,7 @@
 - `Dashboard`：看所有 agent 状态、任务摘要；最近唤醒时间是相对时间，下次唤醒时间是实时倒计时（`hh:mm`）。
 - 顶部栏会显示 `Codex tokens: in/out`，来自各 agent 最新 wake 日志里的 usage 汇总（无数据时显示 `-`）。
 - `Chat`：给 `group` 或单个 agent 发消息；`normal` 只发送，`important` 才唤醒目标。group 里用 `@agent` / `@all` 明确唤醒对象。右侧 Health 区会显示 `Wake state` 和 `Last PI message`，便于判断 agent 是否已被唤醒并读取消息。
-- `Progress`：从 Dashboard 或 direct chat 的 agent 行进入，实时查看该 agent 最新 wake 的 Codex 输出；页面会自动刷新，显示 `working` / `not running`、可读事件卡片，以及结构化 `Live Raw` 流视图（session/turn/usage/command/files/error 标签）+ 可展开的完整原始文本。
+- `Progress`：从 Dashboard 或 direct chat 的 agent 行进入，实时查看该 agent 最新 wake 的 Codex 输出；页面会自动刷新，显示 `working` / `not running`、可读事件卡片，以及默认的 `Live Codex` 可读流（Codex 发言、命令、命令输出摘要、错误）；原始 JSON 在折叠的 `Raw JSON log` 里。
 - Chat 发送框默认优先级是 `important`（`2`）；需要“只发送不立即唤醒”时手动改成 `normal`（`1`）。
 - `Tasks`：少数显式长任务/工单才用；日常协作默认走 group/direct chat。
 - `Guide`：当前文档。

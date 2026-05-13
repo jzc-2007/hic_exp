@@ -118,7 +118,7 @@ def commit_and_push(remote: str, *, push: bool, status_updated: bool) -> None:
         return
     ensure_git_repo(remote)
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    run(["git", "add", "-A"])
+    run(["git", "add", str(STATUS_PATH)])
     diff = run(["git", "diff", "--cached", "--quiet"], check=False)
     if diff.returncode == 0:
         print("nothing staged for daily commit")

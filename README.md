@@ -100,7 +100,7 @@ git@github-hic-exp:jzc-2007/hic_exp.git
 ```
 
 `scripts/daily_status_update.py` writes one deterministic UTC-daily snapshot to
-`shared/DAILY_STATUS.md`, commits it, and pushes to `origin/main`. The
+`shared/DAILY_STATUS.md`, commits only that file, and pushes to `origin/main`. The
 `hic_daily_update` tmux session runs that script once every 24 hours. Runtime
 state such as SQLite files, logs, uploads, Codex session ids, and pycache files
 is ignored by git.

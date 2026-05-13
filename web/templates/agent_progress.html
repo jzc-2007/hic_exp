@@ -36,19 +36,19 @@
 
   <section class="panel progress-raw-panel">
     <div class="progress-head compact-head">
-      <h2 class="section-title">Live Raw</h2>
+      <h2 class="section-title">Live Codex</h2>
       <div class="actions">
-        <span class="status-pill" data-progress-raw-lines>0 lines</span>
+        <span class="status-pill" data-progress-raw-lines>0 events</span>
         <span class="status-pill">auto refresh</span>
       </div>
     </div>
     <div class="progress-raw-tools">
       <label class="toggle-pill"><input type="checkbox" data-progress-wrap checked> wrap lines</label>
-      <span class="muted">structured stream view</span>
+      <span class="muted">readable stream</span>
     </div>
     <div class="raw-stream wrap" data-progress-raw-stream></div>
     <details class="raw-log">
-      <summary>Full raw text</summary>
+      <summary>Raw JSON log</summary>
       <pre class="pre progress-raw wrap" data-progress-raw></pre>
     </details>
   </section>
@@ -84,6 +84,17 @@
       return `${text.slice(0, Math.max(0, limit - 1))}\u2026`;
     };
 
+    const clipBlock = (value, limit = 900) => {
+      const text = String(value || "").trim();
+      if (text.length <= limit) return text;
+      return `${text.slice(0, Math.max(0, limit - 1))}\u2026`;
+    };
+
+    const commandLabel = (value) => {
+      const text = String(value || "command").replace(/\s+/g, " ").trim();
+      return compact(text, 180);
+    };
+
     const parseIntSafe = (value) => {
       const n = Number.parseInt(value, 10);
       return Number.isFinite(n) ? n : 0;
@@ -116,18 +127,39 @@
         return { label: "turn", tone: "ok", text: "turn completed" };
       }
       if (eventType === "turn.failed") {
-        return { label: "error", tone: "bad", text: `turn failed: ${compact(JSON.stringify(event.error || "unknown"), 200)}` };
+        const error = event.error && typeof event.error === "object" ? event.error.message || event.error.code : event.error;
+        return { label: "error", tone: "bad", text: `turn failed: ${compact(error || "unknown", 200)}` };
+      }
+      if (eventType === "item.started") {
+        const item = typeof event.item === "object" && event.item ? event.item : {};
+        const itemType = String(item.type || "").toLowerCase();
+        if (itemType === "command_execution") {
+          return { label: "command", tone: "info", text: `running: ${commandLabel(item.command)}` };
+        }
+        if (itemType === "agent_message") {
+          return null;
+        }
+        if (itemType === "web_search") {
+          return null;
+        }
+        return itemType ? { label: "start", tone: "info", text: `${itemType} started` } : null;
       }
       if (eventType === "item.completed") {
         const item = typeof event.item === "object" && event.item ? event.item : {};
         const itemType = String(item.type || "").toLowerCase();
         if (itemType === "agent_message") {
-          return { label: "agent", tone: "ok", text: compact(item.text || "agent message") };
+          return { label: "agent", tone: "ok", text: `Codex: ${clipBlock(item.text || "agent message", 900)}` };
         }
         if (itemType === "command_execution") {
-          const cmd = compact(item.command || "command", 160);
+          const cmd = commandLabel(item.command);
           const exitValue = item.exit_code == null ? (item.status || "?") : item.exit_code;
-          return { label: "command", tone: item.exit_code && item.exit_code !== 0 ? "bad" : "info", text: `${cmd} (exit ${exitValue})` };
+          const failed = item.exit_code && item.exit_code !== 0;
+          const output = clipBlock(item.aggregated_output || "", failed ? 1200 : 700);
+          const marker = failed ? "failed" : "finished";
+          const text = output
+            ? `${marker} (exit ${exitValue})\n$ ${cmd}\n${output}`
+            : `${marker} (exit ${exitValue})\n$ ${cmd}`;
+          return { label: "command", tone: failed ? "bad" : "info", text };
         }
         if (itemType === "file_change") {
           const changes = Array.isArray(item.changes) ? item.changes.length : 0;
@@ -136,9 +168,12 @@
         if (itemType === "error") {
           return { label: "error", tone: "bad", text: compact(item.message || "item error") };
         }
-        return { label: itemType || "item", tone: "info", text: compact(JSON.stringify(item), 200) };
+        if (itemType === "web_search") {
+          return null;
+        }
+        return itemType ? { label: "item", tone: "info", text: `${itemType} completed` } : null;
       }
-      return { label: eventType || "json", tone: "info", text: compact(JSON.stringify(event), 200) };
+      return eventType ? { label: "event", tone: "info", text: eventType } : null;
     };
 
     const parseRawLine = (line) => {
@@ -167,7 +202,7 @@
           const parsed = JSON.parse(trimmed);
           if (parsed && typeof parsed === "object") {
             const summary = summarizeEvent(parsed);
-            return { ...summary, raw };
+            return summary ? { ...summary, raw } : null;
           }
         } catch (err) {
           // Continue to plain-line classification.
@@ -246,7 +281,7 @@
         if (row) rows.push(row);
       }
 
-      setText(rawLinesEl, `${rows.length} lines`);
+      setText(rawLinesEl, `${rows.length} events`);
       if (!rows.length) {
         const empty = document.createElement("p");
         empty.className = "muted";

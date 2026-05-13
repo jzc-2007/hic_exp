@@ -327,6 +327,29 @@ def tmux_session_exists(name: str) -> bool:
     return proc.returncode == 0
 
 
+def agent_lock_active(root: Path | str, slug: str, stale_seconds: int = 6 * 3600) -> bool:
+    path = root_path(root) / "var" / "locks" / f"{slug}.lock"
+    if not path.exists():
+        return False
+    try:
+        age = time.time() - path.stat().st_mtime
+        pid = int(path.read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        path.unlink(missing_ok=True)
+        return False
+    if age > stale_seconds or pid <= 0:
+        path.unlink(missing_ok=True)
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        path.unlink(missing_ok=True)
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def port_open(host: str, port: int, timeout: float = 0.5) -> bool:
     try:
         with socket.create_connection((host, int(port)), timeout=timeout):
@@ -379,8 +402,8 @@ def system_snapshot(root: Path | str | None = None) -> dict[str, Any]:
         current_now = now_utc()
         for agent in agents:
             lock = root / "var" / "locks" / f"{agent['slug']}.lock"
-            agent["running"] = lock.exists()
-            agent["running_for_seconds"] = int(time.time() - lock.stat().st_mtime) if lock.exists() else 0
+            agent["running"] = agent_lock_active(root, str(agent["slug"]))
+            agent["running_for_seconds"] = int(time.time() - lock.stat().st_mtime) if agent["running"] and lock.exists() else 0
             agent["running_for_label"] = duration_label(agent["running_for_seconds"])
             agent["pending_wakes"] = pending_by_agent.get(agent["slug"], 0)
             heartbeat_at = parse_iso(agent.get("heartbeat_at"))

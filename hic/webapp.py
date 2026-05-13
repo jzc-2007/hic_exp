@@ -39,7 +39,7 @@ from .config import (
 )
 from .message_bus import append_incident, create_wake_request, list_messages, send_message
 from .scheduler import is_overdue, iso, now_utc, parse_iso
-from .status import daemon_alive, db_health, human_log_view, system_snapshot, tail_file
+from .status import agent_lock_active, daemon_alive, db_health, human_log_view, system_snapshot, tail_file
 
 
 def classify_issue(text: str) -> str:
@@ -240,7 +240,7 @@ def decorate_messages(conn, messages: list[dict[str, Any]], root: Path | None = 
             running_targets = [
                 target
                 for target in wake_targets
-                if root and target and (root / "var" / "locks" / f"{target}.lock").exists()
+                if root and target and agent_lock_active(root, target)
             ]
             pending_target_display = [display_label(target) for target in pending_targets]
             running_target_display = [display_label(target) for target in running_targets]
@@ -354,7 +354,7 @@ def agent_progress_payload(root: Path, slug: str, lines: int = 400) -> dict[str,
     log_path = latest_agent_log_path(root, slug)
     content = tail_file(log_path, lines=lines, max_bytes=500000)
     log_view = human_log_view(log_path, f"agent:{slug}", content)
-    lock_path = root / "var" / "locks" / f"{slug}.lock"
+    running = agent_lock_active(root, slug)
     session_path = root / "agents" / slug / "CODEX_SESSION_ID"
     modified_at = ""
     size = 0
@@ -366,8 +366,8 @@ def agent_progress_payload(root: Path, slug: str, lines: int = 400) -> dict[str,
     return {
         "ok": True,
         "agent": {"slug": agent.slug, "display_name": human_name(agent.display_name or agent.slug)},
-        "running": lock_path.exists(),
-        "running_label": "working" if lock_path.exists() else "not running",
+        "running": running,
+        "running_label": "working" if running else "not running",
         "session": session_id or "",
         "session_label": "resume ready" if session_id else "new session on next wake",
         "path": str(log_path),

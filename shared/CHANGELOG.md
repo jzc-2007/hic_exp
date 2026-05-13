@@ -78,3 +78,7 @@
   and added a deterministic daily status updater service.
 - Fixed Progress page layout so the live raw stream gets a wider, responsive
   panel and no longer squeezes command/JSON text into a narrow column.
+- Changed the Progress side stream from JSON-shaped rows to a readable
+  `Live Codex` terminal-style view; raw JSON remains available on demand.
+- Limited the deterministic daily status pusher to stage only
+  `shared/DAILY_STATUS.md`, avoiding accidental runtime or scratch-file commits.

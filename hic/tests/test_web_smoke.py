@@ -96,9 +96,10 @@ def test_web_routes_and_forms(sample_root):
     progress_page = client.get("/hic/progress/main")
     assert progress_page.status_code == 200
     assert b"data-progress-root" in progress_page.data
-    assert b"Live Raw" in progress_page.data
+    assert b"Live Codex" in progress_page.data
+    assert b"Raw JSON log" in progress_page.data
     assert b"data-progress-raw-stream" in progress_page.data
-    assert b"structured stream view" in progress_page.data
+    assert b"readable stream" in progress_page.data
     progress_api = client.get("/hic/api/progress/main")
     assert progress_api.status_code == 200
     progress_data = json.loads(progress_api.data)
