@@ -58,3 +58,24 @@ def test_start_stop_scripts_dry_run():
     assert stop.returncode == 0
     assert "would start" in start.stdout
     assert "would stop" in stop.stdout
+
+
+def test_stop_daemon_refuses_active_agent_lock(tmp_path):
+    root = tmp_path / "hic-root"
+    lock_dir = root / "var" / "locks"
+    lock_dir.mkdir(parents=True)
+    (lock_dir / "qiao_sun.lock").write_text(str(os.getpid()), encoding="ascii")
+    env = os.environ.copy()
+    env["HIC_ROOT"] = str(root)
+    stop = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "stop_daemon.sh")],
+        cwd=root,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert stop.returncode == 2
+    assert "active agent wake" in stop.stdout
+    assert "qiao_sun" in stop.stdout
