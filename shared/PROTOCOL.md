@@ -45,8 +45,12 @@ On every wake, an agent must:
    - Group messages are visible to every agent on their next wake. `@agent`
      and `@all` affect wake targeting only; they do not make the message
      private or hide it from other agents.
-16. Request wakeups if needed.
-17. Return AGENT_RESULT_JSON.
+16. If blocked or materially uncertain, use `questions_to_ask` instead of
+   guessing. Ask at most three concrete PI-facing questions. HIC will send
+   them to PI, mark the agent as `needs input`, and resume the same Codex
+   session when PI replies with an important message.
+17. Request wakeups if needed.
+18. Return AGENT_RESULT_JSON.
 
 Agents end each run with:
 
@@ -64,6 +68,9 @@ Agents end each run with:
   ],
   "tasks_to_update": [
     {"task_id": 1, "status": "in_progress", "note": "..."}
+  ],
+  "questions_to_ask": [
+    {"body": "Which behavior should I implement?", "options": ["A", "B"]}
   ]
 }
 </AGENT_RESULT_JSON>

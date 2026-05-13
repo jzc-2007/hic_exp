@@ -84,6 +84,7 @@ def default_result(
         "messages_to_send": messages_to_send,
         "wake_requests": [],
         "tasks_to_update": [],
+        "questions_to_ask": [],
     }
 
 
@@ -110,6 +111,7 @@ def parse_agent_result(raw_output: str, agent_slug: str) -> tuple[dict[str, Any]
     data.setdefault("messages_to_send", [])
     data.setdefault("wake_requests", [])
     data.setdefault("tasks_to_update", [])
+    data.setdefault("questions_to_ask", [])
     return data, None
 
 
@@ -310,6 +312,7 @@ class CodexRunner:
             "messages_to_send": messages,
             "wake_requests": [],
             "tasks_to_update": updates,
+            "questions_to_ask": [],
         }
         return (
             f"FALLBACK HIC RUN for {agent.slug}\n\n"

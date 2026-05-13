@@ -139,6 +139,38 @@ def route_agent_reply_recipient(recipient: str, group_messages: list[dict], dire
     return normalized
 
 
+def normalize_questions(raw_questions: object, limit: int = 3) -> list[dict[str, object]]:
+    if not isinstance(raw_questions, list):
+        return []
+    questions: list[dict[str, object]] = []
+    for item in raw_questions:
+        if isinstance(item, str):
+            body = item.strip()
+            options: list[str] = []
+        elif isinstance(item, dict):
+            body = str(item.get("body") or item.get("question") or "").strip()
+            raw_options = item.get("options") or []
+            options = [str(option).strip() for option in raw_options if str(option).strip()] if isinstance(raw_options, list) else []
+        else:
+            continue
+        if body:
+            questions.append({"body": body, "options": options[:4]})
+        if len(questions) >= limit:
+            break
+    return questions
+
+
+def format_question_message(question: dict[str, object]) -> str:
+    body = str(question.get("body") or "").strip()
+    options = [str(option) for option in question.get("options") or [] if str(option).strip()]
+    lines = ["Question for PI:", "", body]
+    if options:
+        lines.extend(["", "Options:"])
+        lines.extend(f"- {option}" for option in options)
+    lines.extend(["", "Reply here with `important` to wake me back up."])
+    return "\n".join(lines)
+
+
 def run_agent_once(root: Path, agent: AgentConfig, settings: dict, reason: str = "scheduled") -> bool:
     with AgentLock(root, agent.slug) as acquired:
         if not acquired:
@@ -181,6 +213,10 @@ def run_agent_once(root: Path, agent: AgentConfig, settings: dict, reason: str =
             )
             status_summary = str(parsed.get("status_summary") or "Wake complete.")
             current_task = str(parsed.get("current_task") or "Reviewing messages and deciding whether work is needed.")
+            questions = normalize_questions(parsed.get("questions_to_ask"))
+            if questions:
+                status_summary = f"Needs PI input: {str(questions[0].get('body') or '')[:160]}"
+                current_task = "Waiting for PI input."
             db.update_agent_status(
                 conn,
                 agent.slug,
@@ -237,6 +273,16 @@ def run_agent_once(root: Path, agent: AgentConfig, settings: dict, reason: str =
                         priority=int(msg.get("priority") or 1),
                         wakes_recipient=bool(msg.get("wakes_recipient", True)),
                     )
+            for question in questions:
+                send_message(
+                    conn,
+                    sender=agent.slug,
+                    recipient="pi",
+                    body=format_question_message(question),
+                    priority=1,
+                    wakes_recipient=False,
+                )
+                db.insert_event(conn, "agent_question", agent.slug, {"body": str(question.get("body") or "")[:1000]})
             for wake in parsed.get("wake_requests") or []:
                 if not isinstance(wake, dict):
                     continue

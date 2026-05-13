@@ -117,8 +117,11 @@ should return the required
 Current command:
 
 ```bash
-/home/sqa/.npm-global/bin/codex --ask-for-approval never exec -C /home/jzc/zhichengjiang/working/ai_workspace --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -m gpt-5.3-codex -
+/home/sqa/.npm-global/bin/codex --ask-for-approval never exec -C /home/jzc/zhichengjiang/working/ai_workspace/hic --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -m gpt-5.3-codex -
 ```
+
+Codex starts from the HIC repo root so it can load `AGENTS.md` and the
+repo-scoped skills in `.agents/skills/`.
 
 If this command is removed from `config/settings.yaml`, HIC falls back to mock
 mode so the GUI and scheduler remain usable.

@@ -18,6 +18,7 @@
 - `Dashboard`：看所有 agent 状态、任务摘要；最近唤醒时间是相对时间，下次唤醒时间是实时倒计时（`hh:mm`）。
 - 顶部栏会显示 `Codex /status: ...`：优先展示 Codex `/status` 返回（包括 quota/used 信息，取决于当前 CLI 输出）；若暂时拿不到 `/status`，会退化为最近 wake 日志 usage 汇总。
 - `Chat`：给 `group` 或单个 agent 发消息；`normal` 只发送，`important` 才唤醒目标。group 里用 `@agent` / `@all` 明确唤醒对象。右侧 Health 区会显示 `Wake state` 和 `Last PI message`，便于判断 agent 是否已被唤醒并读取消息。
+- 如果 agent 不确定怎么继续，它会在 direct chat 里发 `Question for PI`，Dashboard/Chat 状态显示 `needs input`；你在同一个 direct chat 里用 `important` 回复后，它会 resume 继续做。
 - `Progress`：从 Dashboard 或 direct chat 的 agent 行进入，实时查看该 agent 最新 wake 的 Codex 输出；页面会自动刷新，显示 `working` / `not running`、可读事件卡片，以及默认的 `Live Codex` 可读流（Codex 发言、命令、命令输出摘要、错误）；原始 JSON 在折叠的 `Raw JSON log` 里。
 - Chat 发送框默认优先级是 `important`（`2`）；需要“只发送不立即唤醒”时手动改成 `normal`（`1`）。
 - `Tasks`：少数显式长任务/工单才用；日常协作默认走 group/direct chat。
@@ -43,6 +44,7 @@
 - Direct 聊天会额外显示所选 agent 的当前唤醒状态（`working` / `awake recently` / `wake queued` / `sleeping`）和最近一条 PI 消息的读取状态。
 - agent 回答时会按来源回到同一频道：群聊问题回 group，私聊问题回 direct。
 - agent wake 会 resume 自己的 Codex 历史；每次主要读新 group/direct 消息和少量变化文件，不重复做首次初始化。
+- HIC 现在使用 repo 级 `AGENTS.md` 和 `.agents/skills/`，让稳定规则和重复工作流由 Codex 自动加载；每次 wake 的 prompt 不再粘贴所有共享规则全文。
 - 高频重复动作要做成一键命令/脚本并写入文档（比如 `hicctl` / `Makefile`），优先简化路径而不是堆流程。
 - 可以上传文件；文件保存在 `var/uploads/`，消息正文会包含本机路径，agent 可以读取。
 - idle wake 的状态单独显示在 Dashboard/Logs，不再发 routine group message。

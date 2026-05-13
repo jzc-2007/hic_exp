@@ -16,7 +16,7 @@ runner:
   idle_next_wake_minutes: 240
   timeout_seconds: 1800
   mock_when_unconfigured: true
-  codex_cmd: "/home/sqa/.npm-global/bin/codex --ask-for-approval never exec -C /home/jzc/zhichengjiang/working/ai_workspace --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -m gpt-5.3-codex -"
+  codex_cmd: "/home/sqa/.npm-global/bin/codex --ask-for-approval never exec -C /home/jzc/zhichengjiang/working/ai_workspace/hic --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -m gpt-5.3-codex -"
 ops:
   log_tail_lines: 300
   public_url: https://kaiming.me/hic

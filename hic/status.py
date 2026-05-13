@@ -410,6 +410,7 @@ def system_snapshot(root: Path | str | None = None) -> dict[str, Any]:
             last_wake_at = parse_iso(agent.get("last_wake_at"))
             freshest = heartbeat_at if heartbeat_at and (not last_wake_at or heartbeat_at >= last_wake_at) else last_wake_at
             recent_awake = bool(freshest and freshest + timedelta(minutes=stale_minutes) >= current_now)
+            needs_input = str(agent.get("current_task") or "").strip().lower() == "waiting for pi input."
             if not agent.get("enabled"):
                 agent["activity_label"] = "disabled"
                 agent["activity_tone"] = "bad"
@@ -422,6 +423,10 @@ def system_snapshot(root: Path | str | None = None) -> dict[str, Any]:
                 agent["activity_label"] = "wake queued"
                 agent["activity_tone"] = "warn"
                 agent["activity_detail"] = "waiting for the daemon to start this agent"
+            elif needs_input:
+                agent["activity_label"] = "needs input"
+                agent["activity_tone"] = "warn"
+                agent["activity_detail"] = "agent is waiting for PI to answer a question"
             elif recent_awake:
                 agent["activity_label"] = "awake recently"
                 agent["activity_tone"] = "ok"

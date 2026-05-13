@@ -28,6 +28,7 @@ def test_parse_fallback_is_safe():
     assert err
     assert parsed["next_wake_minutes"] == 240
     assert parsed["messages_to_send"] == []
+    assert parsed["questions_to_ask"] == []
 
 
 def test_extract_agent_messages_from_codex_json_stream():
@@ -126,8 +127,9 @@ def test_agent_prompt_includes_tpu_safety_red_lines(sample_root):
     runner = CodexRunner(sample_root, load_settings(sample_root))
     prompt = runner.build_prompt(agents[0], [], [], [])
     assert "shared/TPU_SAFETY_RED_LINES.md" in prompt
-    assert "TPU Safety Red Lines" in prompt
-    assert "Ask the user before starting/resuming/killing jobs" in prompt
+    assert "AGENTS.md" in prompt
+    assert "repo skills" in prompt
+    assert "questions_to_ask" in prompt
 
 
 def test_agent_prompt_explains_channel_reply_routing_and_group_visibility(sample_root):
@@ -147,6 +149,7 @@ def test_agent_prompt_explains_channel_reply_routing_and_group_visibility(sample
     assert "mentions only affect wake targeting, not visibility" in prompt
     assert "persistent Codex session resumed across wakes" in prompt
     assert "Never stop or restart HIC from inside your own wake" in prompt
+    assert "hic-workflow" in prompt
 
 
 def test_yiyang_prompt_does_not_repeat_first_wake_infra_when_runbook_exists(sample_root):

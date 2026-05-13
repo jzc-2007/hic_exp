@@ -91,3 +91,8 @@
   into a normal PI chat reply when AGENT_RESULT_JSON is missing or malformed.
 - Fixed chat wake badges so only the latest wake message for a running agent
   shows `working`, and message IDs are matched exactly instead of by substring.
+- Added repo-level Codex guidance (`AGENTS.md`) plus repo skills:
+  `hic-workflow` for self-evolution/PI clarification and `tpu-safety` for
+  TPU/cloud red-line checks.
+- Added lightweight "grill me" support: agents can return `questions_to_ask`,
+  HIC sends those to PI, and the UI marks the agent as `needs input`.

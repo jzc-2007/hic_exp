@@ -43,6 +43,7 @@ def build_agent_prompt(
     global_principles = (
         "Global principles for all agents:\n"
         "- Simplicity first: prefer the fewest moving parts that still solve the task.\n"
+        "- Codex has loaded repo guidance from AGENTS.md and repo skills from .agents/skills; use them when relevant.\n"
         "- If a workflow repeats, build or improve a one-click helper (script/command), then document it.\n"
         "- Keep durable knowledge structured and compact: continuously maintain MEMORY.md and EXPERIENCE.md.\n"
         "- Use `python3 scripts/hicctl.py compact-notes` when notes grow, so long-term memory stays concise.\n"
@@ -121,7 +122,10 @@ Wake order:
    - use `##` sections and concise bullets.
    - target <= 8 KB per file; summarize older content instead of unbounded growth.
    - use `python3 scripts/hicctl.py compact-notes` when notes grow.
-14. Return AGENT_RESULT_JSON.
+14. If you are blocked or the user's intent is materially ambiguous, use the
+   `hic-workflow` skill and return `questions_to_ask` instead of guessing.
+   Ask at most three concrete questions.
+15. Return AGENT_RESULT_JSON.
 
 Recent group messages:
 {format_messages(group_messages, "GROUP")}
@@ -144,14 +148,16 @@ MEMORY.md:
 EXPERIENCE.md:
 {read_file(adir / "EXPERIENCE.md")}
 
-shared/PROTOCOL.md:
-{read_file(root / "shared" / "PROTOCOL.md")}
-
-shared/TPU_SAFETY_RED_LINES.md:
-{read_file(root / "shared" / "TPU_SAFETY_RED_LINES.md")}
-
 shared/TASK_BOARD.md:
 {read_file(root / "shared" / "TASK_BOARD.md")}
+
+Durable docs available to read when needed:
+- AGENTS.md
+- shared/PROTOCOL.md
+- shared/TPU_SAFETY_RED_LINES.md
+- shared/ONBOARDING.md
+- shared/SYSTEM_DESIGN.md
+- shared/INCIDENTS.md
 
 End with exactly one JSON object wrapped in these tags:
 
@@ -162,7 +168,8 @@ End with exactly one JSON object wrapped in these tags:
   "next_wake_minutes": 240,
   "messages_to_send": [],
   "wake_requests": [],
-  "tasks_to_update": []
+  "tasks_to_update": [],
+  "questions_to_ask": []
 }}
 </AGENT_RESULT_JSON>
 """

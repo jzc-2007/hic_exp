@@ -284,6 +284,57 @@ def test_direct_origin_pi_replies_stay_direct(sample_root, monkeypatch):
         check.close()
 
 
+def test_agent_questions_are_sent_to_pi_and_mark_need_input(sample_root, monkeypatch):
+    ensure_project_structure(sample_root)
+    conn = db.connect(root=sample_root)
+    try:
+        db.init_db(conn)
+        db.upsert_agents(conn, load_agents(sample_root))
+        send_message(conn, "pi", "qiao_sun", "do the ambiguous thing", priority=2)
+    finally:
+        conn.close()
+
+    class FakeRunner:
+        def __init__(self, root, settings):
+            self.root = root
+
+        def run(self, agent, group_messages, direct_messages, tasks):
+            return RunnerResult(
+                "",
+                {
+                    "status_summary": "need clarification",
+                    "current_task": "blocked",
+                    "next_wake_minutes": 240,
+                    "messages_to_send": [],
+                    "wake_requests": [],
+                    "tasks_to_update": [],
+                    "questions_to_ask": [
+                        {"body": "Which version should I build?", "options": ["A", "B"]},
+                    ],
+                },
+                "mock",
+                None,
+                None,
+            )
+
+    monkeypatch.setattr("hic.daemon.CodexRunner", FakeRunner)
+    qiao = next(agent for agent in load_agents(sample_root) if agent.slug == "qiao_sun")
+    assert run_agent_once(sample_root, qiao, load_settings(sample_root), reason="test")
+
+    check = db.connect(root=sample_root)
+    try:
+        direct_messages = list_messages(check, channel="direct:qiao_sun")
+        assert direct_messages[-1]["sender"] == "qiao_sun"
+        assert direct_messages[-1]["recipient"] == "pi"
+        assert "Question for PI" in direct_messages[-1]["body"]
+        assert "Which version should I build?" in direct_messages[-1]["body"]
+        agent = db.get_agent(check, "qiao_sun")
+        assert agent["current_task"] == "Waiting for PI input."
+        assert agent["status_summary"].startswith("Needs PI input:")
+    finally:
+        check.close()
+
+
 def test_agent_lock_failed_acquire_preserves_existing_lock(sample_root):
     ensure_project_structure(sample_root)
     lock_path = sample_root / "var" / "locks" / "qiao_sun.lock"
