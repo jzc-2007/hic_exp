@@ -564,6 +564,13 @@ time[data-countdown-time] {
 
 .progress-shell {
   min-height: calc(100vh - 126px);
+  width: min(1840px, calc(100vw - 32px));
+  margin-left: calc(50% - min(1840px, calc(100vw - 32px)) / 2);
+  align-items: start;
+}
+
+.progress-shell.grid.three {
+  grid-template-columns: 280px minmax(620px, 1fr) minmax(480px, 560px);
 }
 
 .progress-main,
@@ -571,10 +578,18 @@ time[data-countdown-time] {
   min-width: 0;
 }
 
+.progress-main {
+  overflow: hidden;
+}
+
 .progress-raw-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: sticky;
+  top: 82px;
+  max-height: calc(100vh - 104px);
+  overflow: hidden;
 }
 
 .progress-head {
@@ -595,6 +610,10 @@ time[data-countdown-time] {
   gap: 12px;
   margin: 10px 0 14px;
   font-size: 13px;
+}
+
+.progress-meta .muted {
+  overflow-wrap: anywhere;
 }
 
 .progress-raw-tools {
@@ -621,6 +640,7 @@ time[data-countdown-time] {
 }
 
 .raw-stream {
+  flex: 1 1 auto;
   height: calc(100vh - 420px);
   min-height: 360px;
   overflow: auto;
@@ -635,7 +655,7 @@ time[data-countdown-time] {
 
 .raw-row {
   display: grid;
-  grid-template-columns: 52px 72px minmax(0, 1fr);
+  grid-template-columns: 44px 78px minmax(0, 1fr);
   gap: 8px;
   padding: 4px 6px;
   border-radius: 6px;
@@ -661,18 +681,24 @@ time[data-countdown-time] {
 
 .raw-line-text {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .raw-stream.wrap .raw-line-text,
 .pre.progress-raw.wrap {
   white-space: pre-wrap;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .raw-stream:not(.wrap) .raw-line-text,
 .pre.progress-raw:not(.wrap) {
   white-space: pre;
   word-break: normal;
+}
+
+.raw-stream:not(.wrap) .raw-row {
+  min-width: max-content;
 }
 
 .raw-row.info {
@@ -702,8 +728,37 @@ time[data-countdown-time] {
   margin: 0;
 }
 
+.progress-shell .log-timeline,
+.progress-shell .log-card,
+.progress-shell .log-card-head > div,
+.progress-shell .pre {
+  min-width: 0;
+}
+
+.progress-shell .log-card p,
+.progress-shell .pre.compact {
+  overflow-wrap: anywhere;
+}
+
 .markdown code {
   color: var(--accent);
+}
+
+@media (max-width: 1360px) {
+  .progress-shell.grid.three {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .progress-raw-panel {
+    grid-column: 2;
+    position: static;
+    max-height: none;
+  }
+
+  .raw-stream {
+    height: 520px;
+    min-height: 320px;
+  }
 }
 
 @media (max-width: 980px) {
@@ -728,6 +783,15 @@ time[data-countdown-time] {
   .container {
     width: min(1440px, calc(100vw - 18px));
     margin-top: 12px;
+  }
+
+  .progress-shell {
+    width: min(1440px, calc(100vw - 18px));
+    margin-left: 0;
+  }
+
+  .progress-raw-panel {
+    grid-column: auto;
   }
 
   .messages {

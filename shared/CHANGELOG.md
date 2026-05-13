@@ -76,3 +76,5 @@
   runtime history or old Codex session files.
 - Initialized git mirror support for `git@github-hic-exp:jzc-2007/hic_exp.git`
   and added a deterministic daily status updater service.
+- Fixed Progress page layout so the live raw stream gets a wider, responsive
+  panel and no longer squeezes command/JSON text into a narrow column.
