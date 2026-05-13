@@ -464,6 +464,42 @@ label {
   font-size: 12px;
 }
 
+.pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pending-attachments[hidden] {
+  display: none;
+}
+
+.pending-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  border: 1px solid rgba(104, 255, 184, 0.34);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: rgba(104, 255, 184, 0.08);
+  color: var(--text);
+}
+
+.pending-attachment span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-attachment button {
+  min-height: 24px;
+  padding: 0 7px;
+  border-color: rgba(255, 79, 135, 0.42);
+  color: #ffdce7;
+}
+
 .pre {
   white-space: pre-wrap;
   word-break: break-word;

@@ -72,8 +72,9 @@
       </div>
       <div style="height: 10px"></div>
       <label>Attach files
-        <input name="files" type="file" multiple>
+        <input name="files" type="file" multiple data-chat-file-input>
       </label>
+      <div class="pending-attachments" data-pending-attachments hidden aria-live="polite"></div>
     </form>
   </section>
 
@@ -201,6 +202,89 @@
     });
     picker.addEventListener("mousedown", (event) => event.preventDefault());
     options.forEach((option) => option.addEventListener("click", () => insertMention(option)));
+  })();
+
+  (() => {
+    const form = document.querySelector("[data-chat-form]");
+    const fileInput = document.querySelector("[data-chat-file-input]");
+    const pending = document.querySelector("[data-pending-attachments]");
+    if (!form || !fileInput || !pending || typeof DataTransfer === "undefined") return;
+
+    const files = () => Array.from(fileInput.files || []);
+
+    const formatBytes = (size) => {
+      if (size < 1024) return `${size} bytes`;
+      if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const imageExtension = (type) => {
+      const known = {
+        "image/gif": "gif",
+        "image/heic": "heic",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+      };
+      return known[type] || "png";
+    };
+
+    const namedClipboardFile = (file, index) => {
+      if (file.name) return file;
+      const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+      return new File([file], `pasted-image-${stamp}-${index + 1}.${imageExtension(file.type)}`, {
+        type: file.type || "image/png",
+        lastModified: Date.now(),
+      });
+    };
+
+    const replaceFiles = (nextFiles) => {
+      const transfer = new DataTransfer();
+      nextFiles.forEach((file) => transfer.items.add(file));
+      fileInput.files = transfer.files;
+    };
+
+    const renderPending = () => {
+      const current = files();
+      pending.replaceChildren();
+      pending.hidden = current.length === 0;
+      current.forEach((file, index) => {
+        const chip = document.createElement("span");
+        chip.className = "pending-attachment";
+        const label = document.createElement("span");
+        label.textContent = `${file.name || "pasted image"} · ${formatBytes(file.size || 0)}`;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.setAttribute("aria-label", `Remove ${file.name || "attachment"}`);
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          replaceFiles(current.filter((_, itemIndex) => itemIndex !== index));
+          renderPending();
+        });
+        chip.append(label, remove);
+        pending.appendChild(chip);
+      });
+    };
+
+    const addClipboardImages = (event) => {
+      const clipboard = event.clipboardData;
+      if (!clipboard) return;
+      const imageFiles = Array.from(clipboard.items || [])
+        .filter((item) => item.kind === "file" && String(item.type || "").startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter(Boolean)
+        .map(namedClipboardFile);
+      if (!imageFiles.length) return;
+      replaceFiles([...files(), ...imageFiles]);
+      renderPending();
+      if (!Array.from(clipboard.types || []).includes("text/plain")) {
+        event.preventDefault();
+      }
+    };
+
+    form.addEventListener("paste", addClipboardImages);
+    fileInput.addEventListener("change", renderPending);
+    renderPending();
   })();
 </script>
 {% endblock %}
