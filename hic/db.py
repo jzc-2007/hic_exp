@@ -267,9 +267,14 @@ def list_attachments(conn: sqlite3.Connection, message_ids: list[int]) -> dict[i
 
 
 def wake_requests_for_message(conn: sqlite3.Connection, message_id: int) -> list[dict[str, Any]]:
+    reasons = (
+        f"direct message {int(message_id)}",
+        f"group message {int(message_id)}",
+        f"group mention message {int(message_id)}",
+    )
     rows = conn.execute(
-        "SELECT * FROM wake_requests WHERE reason LIKE ? ORDER BY id",
-        (f"%message {int(message_id)}%",),
+        "SELECT * FROM wake_requests WHERE reason IN (?, ?, ?) ORDER BY id",
+        reasons,
     ).fetchall()
     return rows_to_dicts(rows)
 

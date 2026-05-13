@@ -74,6 +74,9 @@
   compact agent `MEMORY.md` / `EXPERIENCE.md` into structured, bounded notes.
 - Added README guidance for deploying a fresh HIC instance without carrying old
   runtime history or old Codex session files.
+- Updated topbar metric from `Codex tokens` to `Codex /status`:
+  - primary source is live Codex `/status` output (cached briefly);
+  - fallback remains latest wake-log usage summary when `/status` is unavailable.
 - Initialized git mirror support for `git@github-hic-exp:jzc-2007/hic_exp.git`
   and added a deterministic daily status updater service.
 - Fixed Progress page layout so the live raw stream gets a wider, responsive
@@ -86,3 +89,5 @@
   restarts instead of stopping their own daemon/web process mid-wake.
 - Added a runner fallback that turns unstructured Codex `agent_message` output
   into a normal PI chat reply when AGENT_RESULT_JSON is missing or malformed.
+- Fixed chat wake badges so only the latest wake message for a running agent
+  shows `working`, and message IDs are matched exactly instead of by substring.

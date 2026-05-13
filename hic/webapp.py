@@ -8,7 +8,10 @@ import json
 import os
 import re
 import secrets
+import shlex
+import shutil
 import subprocess
+import time
 import uuid
 
 from flask import (
@@ -161,7 +164,132 @@ def _extract_usage_from_wake_log(path: Path) -> dict[str, int] | None:
     return None
 
 
+def _parse_codex_status_output(output: str) -> dict[str, Any]:
+    raw_lines = [line.rstrip() for line in output.splitlines()]
+    cleaned = [line.strip() for line in raw_lines if line.strip()]
+    visible = [
+        line
+        for line in cleaned
+        if line
+        and line not in {"--------", "user", "codex"}
+        and not line.startswith("Reading additional input from stdin...")
+        and not line.startswith("OpenAI Codex ")
+        and not line.startswith("warning:")
+    ]
+    quota_line = next((line for line in visible if "quota" in line.lower()), "")
+    if quota_line:
+        label = f"Codex /status: {quota_line}"
+    else:
+        tokens_line = ""
+        for idx, line in enumerate(visible):
+            if line.lower() == "tokens used" and idx + 1 < len(visible):
+                tokens_line = visible[idx + 1]
+                break
+        if tokens_line:
+            label = f"Codex /status: used {tokens_line}"
+        else:
+            ready_line = next((line for line in visible if "ready" in line.lower() or "no active task" in line.lower()), "")
+            label = f"Codex /status: {ready_line or 'available'}"
+    title = "\n".join(raw_lines[-30:]).strip()
+    return {"label": label, "title": title}
+
+
+def _run_codex_status(root: Path) -> dict[str, Any] | None:
+    settings = load_settings(root)
+    cmd_text = str(os.environ.get("HIC_CODEX_CMD") or settings.get("runner", {}).get("codex_cmd") or "").strip()
+    if not cmd_text:
+        return None
+    try:
+        parts = shlex.split(cmd_text)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    codex_bin = parts[0]
+    if not (Path(codex_bin).exists() or shutil.which(codex_bin)):
+        return None
+    workspace = str((root / "..").resolve())
+    model = ""
+    for idx, token in enumerate(parts):
+        if token in {"-C", "--cd"} and idx + 1 < len(parts):
+            workspace = parts[idx + 1]
+        if token == "-m" and idx + 1 < len(parts):
+            model = parts[idx + 1]
+    cmd = [
+        codex_bin,
+        "--ask-for-approval",
+        "never",
+        "exec",
+        "-C",
+        workspace,
+        "--skip-git-repo-check",
+    ]
+    if model:
+        cmd.extend(["-m", model])
+    cmd.append("/status")
+    proc = subprocess.run(
+        cmd,
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=25,
+        check=False,
+    )
+    output = proc.stdout or ""
+    if proc.returncode != 0 or not output.strip():
+        return None
+    parsed = _parse_codex_status_output(output)
+    parsed["raw"] = output[-20000:]
+    parsed["fetched_at"] = iso()
+    return parsed
+
+
+def _read_codex_status_cache(path: Path, max_age_seconds: int) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    age = time.time() - path.stat().st_mtime
+    if age > max_age_seconds:
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
 def codex_usage_summary(root: Path) -> dict[str, Any]:
+    cache_path = root / "var" / "run" / "codex_status_cache.json"
+    cached = _read_codex_status_cache(cache_path, max_age_seconds=120)
+    if cached:
+        return {
+            "available": True,
+            "label": str(cached.get("label") or "Codex /status: available"),
+            "title": str(cached.get("title") or ""),
+        }
+    status = _run_codex_status(root)
+    if status:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "label": status.get("label") or "Codex /status: available",
+                    "title": status.get("title") or "",
+                    "fetched_at": status.get("fetched_at") or "",
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "available": True,
+            "label": str(status.get("label") or "Codex /status: available"),
+            "title": str(status.get("title") or ""),
+        }
+
     input_sum = 0
     output_sum = 0
     total_sum = 0
@@ -186,8 +314,8 @@ def codex_usage_summary(root: Path) -> dict[str, Any]:
     if usage_agents == 0:
         return {
             "available": False,
-            "label": "Codex tokens: -",
-            "title": "No recent token usage found in agent wake logs.",
+            "label": "Codex /status: -",
+            "title": "No codex /status or usage data available yet.",
             "input_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
@@ -196,7 +324,7 @@ def codex_usage_summary(root: Path) -> dict[str, Any]:
     latest_iso = datetime.fromtimestamp(latest_mtime, tz=timezone.utc).isoformat() if latest_mtime else ""
     return {
         "available": True,
-        "label": f"Codex tokens: {input_sum:,}/{output_sum:,}",
+        "label": f"Codex /status: usage {input_sum:,}/{output_sum:,}",
         "title": (
             f"Input: {input_sum:,}, Output: {output_sum:,}, Total: {total_sum:,}. "
             f"Summed from latest usage event of {usage_agents} agent log(s)"
@@ -215,6 +343,13 @@ def decorate_messages(conn, messages: list[dict[str, Any]], root: Path | None = 
     root = Path(root) if root else None
     display_by_slug = {
         str(agent["slug"]): human_name(str(agent.get("display_name") or agent["slug"])) for agent in db.list_agents(conn)
+    }
+    latest_wake_id_by_target = {
+        str(row["target_agent"]): int(row["id"])
+        for row in conn.execute(
+            "SELECT target_agent, MAX(id) AS id FROM wake_requests GROUP BY target_agent"
+        ).fetchall()
+        if row["target_agent"] and row["id"]
     }
 
     def display_label(value: Any) -> str:
@@ -236,11 +371,14 @@ def decorate_messages(conn, messages: list[dict[str, Any]], root: Path | None = 
         pending = [wake for wake in wakes if not wake.get("handled")]
         if wakes:
             pending_targets = [str(wake.get("target_agent") or "") for wake in pending]
-            wake_targets = [str(wake.get("target_agent") or "") for wake in wakes]
             running_targets = [
                 target
-                for target in wake_targets
-                if root and target and agent_lock_active(root, target)
+                for wake in wakes
+                for target in [str(wake.get("target_agent") or "")]
+                if root
+                and target
+                and int(wake.get("id") or 0) == latest_wake_id_by_target.get(target)
+                and agent_lock_active(root, target)
             ]
             pending_target_display = [display_label(target) for target in pending_targets]
             running_target_display = [display_label(target) for target in running_targets]

@@ -1,9 +1,10 @@
 from io import BytesIO
 import json
+import os
 
 from hic import db
-from hic.message_bus import pending_wake_requests
-from hic.webapp import create_app
+from hic.message_bus import list_messages, pending_wake_requests, send_message
+from hic.webapp import create_app, decorate_messages
 
 
 def test_web_routes_and_forms(sample_root):
@@ -15,7 +16,7 @@ def test_web_routes_and_forms(sample_root):
     assert dashboard.status_code == 200
     assert b'href="https://kaiming.me/"' in dashboard.data
     assert b"TPU Dashboard" in dashboard.data
-    assert b"Codex tokens:" in dashboard.data
+    assert b"Codex /status:" in dashboard.data
     assert b"data-countdown-time" in dashboard.data
     assert b">00:00</time>" in dashboard.data
     assert b"/hic/progress/main" in dashboard.data
@@ -120,5 +121,28 @@ def test_web_routes_and_forms(sample_root):
         assert conn.execute("SELECT COUNT(*) AS n FROM tasks").fetchone()["n"] == tasks_before_self_improve
         wakes = pending_wake_requests(conn)
         assert any(wake["target_agent"] in {"self_evolver", "main"} for wake in wakes)
+    finally:
+        conn.close()
+
+
+def test_only_latest_wake_message_shows_working(sample_root):
+    app = create_app(sample_root)
+    app.config.update(TESTING=True)
+    conn = db.connect(root=sample_root)
+    try:
+        first = send_message(conn, "pi", "qiao_sun", "first important", priority=2)
+        conn.execute("UPDATE wake_requests SET handled=1 WHERE target_agent='qiao_sun'")
+        second = send_message(conn, "pi", "qiao_sun", "second important", priority=2)
+        conn.execute("UPDATE wake_requests SET handled=1 WHERE target_agent='qiao_sun'")
+        conn.commit()
+
+        lock_path = sample_root / "var" / "locks" / "qiao_sun.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path.write_text(str(os.getpid()), encoding="ascii")
+
+        messages = decorate_messages(conn, list_messages(conn, channel="direct:qiao_sun"), root=sample_root)
+        by_id = {int(message["id"]): message for message in messages}
+        assert by_id[first]["wake_progress"]["label"] == "wake complete"
+        assert by_id[second]["wake_progress"]["label"] == "working"
     finally:
         conn.close()

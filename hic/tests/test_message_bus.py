@@ -50,6 +50,27 @@ def test_wake_requests_are_coalesced_per_agent(sample_root):
         conn.close()
 
 
+def test_wake_requests_for_message_matches_exact_message_id(sample_root):
+    ensure_project_structure(sample_root)
+    conn = db.connect(root=sample_root)
+    try:
+        db.init_db(conn)
+        db.upsert_agents(conn, load_agents(sample_root))
+        send_message(conn, "pi", "qiao_sun", "message one", priority=1)
+        second = send_message(conn, "pi", "qiao_sun", "message two", priority=1)
+        conn.execute(
+            """
+            INSERT INTO wake_requests(created_at, target_agent, requested_by, reason, handled)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("now", "qiao_sun", "pi", f"direct message {second}5", 1),
+        )
+        conn.commit()
+        assert db.wake_requests_for_message(conn, second) == []
+    finally:
+        conn.close()
+
+
 def test_important_group_without_mentions_does_not_wake(sample_root):
     ensure_project_structure(sample_root)
     conn = db.connect(root=sample_root)

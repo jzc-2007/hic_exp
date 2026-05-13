@@ -46,6 +46,8 @@ Append-only progress log.
 
 - 2026-05-13T18:08:19+00:00 [real] Processed PI direct message #23 with three self-evolution directives: (1) codified global simplicity + one-click automation principles in agent prompt/protocol, (2) added structured memory-size governance and one-click compaction command `python3 scripts/hicctl.py compact-notes` (plus `make compact-notes`), and (3) documented clean migration/deployment steps without old runtime history in `README.md`. Updated `shared/USAGE.md`, `shared/CHANGELOG.md`, and self_evolver durable memory. Verification: `PYTHONPATH=\"$PWD:${PYTHONPATH:-}\" HIC_ROOT=\"$PWD\" python3 -m pytest hic/tests/test_cli_smoke.py hic/tests/test_web_smoke.py hic/tests/test_status_logs.py -q` => 5 passed.
 
+- 2026-05-13T18:57:39+00:00 [real] Processed PI direct messages #25/#26/#27: clarified that previous topbar showed wake-log usage totals, implemented topbar switch to `Codex /status` semantics in `hic/webapp.py` (live cached `/status` probe with usage fallback), updated docs/tests, and preserved new no-self-restart safety rule by preparing an external-operator restart handoff instead of stopping HIC inside this wake. Verification: `PYTHONPATH=\"$PWD:${PYTHONPATH:-}\" HIC_ROOT=\"$PWD\" python3 -m pytest hic/tests/test_web_smoke.py hic/tests/test_status_logs.py -q` => 3 passed.
+
 - 2026-05-13T04:57:53+00:00 [real] Improved Progress Live Raw readability with structured stream rows, labels, and wrap control; focused tests passed. log=/kmh-nfs-ssd-us-mount/code/zhichengjiang/working/ai_workspace/hic/agents/self_evolver/logs/wake-2026-05-13T045336Z0000.log
 
 - 2026-05-13T08:58:52+00:00 [real] Idle wake complete; no new actionable direct/group requests or open tasks, and durable logs were updated. log=/kmh-nfs-ssd-us-mount/code/zhichengjiang/working/ai_workspace/hic/agents/self_evolver/logs/wake-2026-05-13T085754Z0000.log
@@ -55,3 +57,5 @@ Append-only progress log.
 - 2026-05-13T17:00:07+00:00 [real] Idle wake complete; no new actionable direct/group requests or open tasks, and durable logs were updated. log=/kmh-nfs-ssd-us-mount/code/zhichengjiang/working/ai_workspace/hic/agents/self_evolver/logs/wake-2026-05-13T165932Z0000.log
 
 - 2026-05-13T18:09:20+00:00 [real] Added global simplicity/self-evolving rules, introduced one-click note compaction command, and documented fresh deployment steps; focused tests passed. log=/kmh-nfs-ssd-us-mount/code/zhichengjiang/working/ai_workspace/hic/agents/self_evolver/logs/wake-2026-05-13T180340Z0000.log
+
+- 2026-05-13T18:58:39+00:00 [real] Switched topbar metric to Codex /status semantics (cached live status with usage fallback), updated docs/tests, and prepared external-restart handoff per no-self-restart rule. log=/kmh-nfs-ssd-us-mount/code/zhichengjiang/working/ai_workspace/hic/agents/self_evolver/logs/wake-2026-05-13T185452Z0000.log
