@@ -1,0 +1,23 @@
+web:
+  host: 127.0.0.1
+  port: 8765
+  path_prefix: /hic
+  fallback_ports:
+    - 18765
+    - 18766
+    - 18767
+daemon:
+  poll_interval_seconds: 1
+  max_sleep_minutes: 240
+  retry_minutes: 15
+  stale_heartbeat_minutes: 5
+runner:
+  default_next_wake_minutes: 240
+  idle_next_wake_minutes: 240
+  timeout_seconds: 1800
+  mock_when_unconfigured: true
+  codex_cmd: "/home/sqa/.npm-global/bin/codex --ask-for-approval never exec -C /home/jzc/zhichengjiang/working/ai_workspace --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -m gpt-5.3-codex -"
+ops:
+  log_tail_lines: 300
+  public_url: https://kaiming.me/hic
+  tpu_dashboard_url: https://kaiming.me/

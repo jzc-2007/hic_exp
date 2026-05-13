@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1 class="section-title">Tasks</h1>
+  <form method="post">
+    <input type="hidden" name="action" value="create">
+    <div class="form-row">
+      <label>Title
+        <input name="title" required>
+      </label>
+      <label>Owner
+        <select name="owner">
+          {% for agent in agents %}<option value="{{ agent.slug }}">{{ agent.display_name|human_name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Priority
+        <select name="priority">
+          <option value="1">normal</option>
+          <option value="2" selected>important</option>
+        </select>
+      </label>
+    </div>
+    <div style="height: 10px"></div>
+    <label>Description
+      <textarea name="description"></textarea>
+    </label>
+    <div style="height: 10px"></div>
+    <button class="primary" type="submit">Create task</button>
+  </form>
+</section>
+
+<section class="panel" style="margin-top: 16px">
+  <div class="actions" style="margin-bottom: 12px">
+    <a class="button" href="{{ url_for('tasks') }}">All</a>
+    <a class="button" href="{{ url_for('tasks', status='open') }}">Open</a>
+    <a class="button" href="{{ url_for('tasks', status='in_progress') }}">In progress</a>
+    <a class="button" href="{{ url_for('tasks', status='done') }}">Done</a>
+  </div>
+  <table>
+    <thead><tr><th>ID</th><th>Task</th><th>Owner</th><th>Status</th><th>Update</th></tr></thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>#{{ task.id }}</td>
+        <td><strong>{{ task.title }}</strong><br><span class="muted">{{ 'important' if task.priority|int >= 2 else 'normal' }} | {{ task.description|short(220) }}</span></td>
+        <td>{{ task.owner|human_name }}</td>
+        <td>{{ task.status }}</td>
+        <td>
+          <form method="post" class="actions">
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="task_id" value="{{ task.id }}">
+            <select name="status" style="width: 140px">
+              {% for status in ['open','in_progress','blocked','done'] %}
+              <option value="{{ status }}" {{ 'selected' if task.status == status else '' }}>{{ status }}</option>
+              {% endfor %}
+            </select>
+            <select name="owner" style="width: 150px">
+              {% for agent in agents %}<option value="{{ agent.slug }}" {{ 'selected' if task.owner == agent.slug else '' }}>{{ agent.display_name|human_name }}</option>{% endfor %}
+            </select>
+            <button type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

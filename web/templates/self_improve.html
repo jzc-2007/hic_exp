@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two">
+  <section class="panel">
+    <h1 class="section-title">Self-Improvement</h1>
+    <form method="post">
+      <label>Report system issue or improvement request
+        <textarea name="body" required></textarea>
+      </label>
+      <div style="height: 10px"></div>
+      <button class="primary" type="submit">Send request</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2 class="section-title">Routing</h2>
+    <p>Requests are logged as incidents and sent to the HIC maintainer. They do not create routine tasks.</p>
+  </section>
+</div>
+<section class="panel" style="margin-top: 16px">
+  <h2 class="section-title">Incidents</h2>
+  <div class="markdown">{{ incidents }}</div>
+</section>
+{% endblock %}

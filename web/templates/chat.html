@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid three chat-shell">
+  <aside class="panel sidebar">
+    <h1 class="section-title">Chats</h1>
+    <a class="{{ 'active' if selected == 'group' else '' }}" href="{{ url_for('chat', channel='group') }}">Group</a>
+    {% for agent in agents %}
+      <a class="{{ 'active' if selected == 'direct:' + agent.slug else '' }}" href="{{ url_for('chat', channel='direct:' + agent.slug) }}">{{ agent.display_name|human_name }}</a>
+    {% endfor %}
+  </aside>
+
+  <section class="panel">
+    <h2 class="section-title">{{ selected_label }}</h2>
+    <div class="messages">
+      {% for msg in messages %}
+      <div class="message {{ 'pi' if msg.sender == 'pi' else '' }} {{ 'sent-focus' if sent_message_id == msg.id else '' }}">
+        <div class="meta">
+          #{{ msg.id }}
+          {% if msg.created_at %}
+          <time data-relative-time datetime="{{ msg.created_at }}" title="{{ msg.created_at }}">{{ msg.created_at|relative_time }}</time>
+          {% endif %}
+          | {{ msg.sender_display }} to {{ msg.recipient_display }} | {{ 'important' if msg.priority|int >= 2 else 'normal' }}
+        </div>
+        <div>{{ msg.body }}</div>
+        {% if msg.attachments %}
+        <div class="attachments">
+          {% for file in msg.attachments %}
+          <a class="attachment" href="{{ url_for('attachment', attachment_id=file.id) }}">File: {{ file.filename }} <span>{{ file.size }} bytes</span></a>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="message-progress">
+          <span class="status-pill {{ 'warn' if msg.wake_progress.pending or msg.wake_progress.running else 'ok' }}">{{ msg.wake_progress.label }}</span>
+          {% if msg.recipient == 'pi' %}
+          <span class="status-pill">sent to PI</span>
+          {% elif msg.wake_progress.running_target_display %}
+          <span class="status-pill">working: {{ msg.wake_progress.running_target_display|join(', ') }}</span>
+          {% elif msg.read_by_list %}
+          <span class="status-pill">read by {{ msg.read_by_display|join(', ') }}</span>
+          {% elif msg.wake_progress.pending_target_display %}
+          <span class="status-pill">queued for {{ msg.wake_progress.pending_target_display|join(', ') }}</span>
+          {% else %}
+          <span class="status-pill">not read yet</span>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p class="muted">No messages yet.</p>
+      {% endfor %}
+    </div>
+    <form method="post" enctype="multipart/form-data" style="margin-top: 12px" data-chat-form>
+      <input type="hidden" name="channel" value="{{ selected }}">
+      <div class="form-row">
+        <label>Message
+          <span class="mention-composer">
+            <textarea name="body" placeholder="Write a message, or attach a file below." data-mention-input></textarea>
+            <span class="mention-picker" data-mention-picker hidden>
+              <button type="button" data-mention-option data-mention="all" data-label="All" data-search="all everyone 全员 所有人">All <span>@all</span></button>
+              {% for agent in agents %}
+              <button type="button" data-mention-option data-mention="{{ agent.slug }}" data-label="{{ agent.display_name|human_name }}" data-search="{{ agent.slug }} {{ agent.display_name|human_name }}">{{ agent.display_name|human_name }} <span>@{{ agent.slug }}</span></button>
+              {% endfor %}
+            </span>
+          </span>
+        </label>
+        <label>Delivery
+          <select name="priority">
+            <option value="1">normal</option>
+            <option value="2" selected>important</option>
+          </select>
+        </label>
+        <button class="primary" type="submit">Send</button>
+      </div>
+      <div style="height: 10px"></div>
+      <label>Attach files
+        <input name="files" type="file" multiple>
+      </label>
+    </form>
+  </section>
+
+  <aside class="panel">
+    <h2 class="section-title">Health</h2>
+    <div class="actions">
+      <span class="status-pill {{ 'ok' if snapshot.daemon_alive else 'bad' }}">daemon {{ 'alive' if snapshot.daemon_alive else 'not alive' }}</span>
+      <span class="status-pill">runner {{ snapshot.runner_mode }}</span>
+      {% if agent_runtime %}<span class="status-pill {{ agent_runtime.activity_tone }}">{{ agent_runtime.activity_label }}</span>{% endif %}
+      {% if agent_runtime and agent_runtime.pending_wakes and not agent_runtime.running %}<span class="status-pill warn">wake queued</span>{% endif %}
+    </div>
+    {% if selected_agent %}
+    <h2 class="section-title" style="margin-top: 20px">{{ selected_agent.display_name|human_name }}</h2>
+    <p><strong>Role</strong><br>{{ selected_agent.role }}</p>
+    <p><strong>Current work</strong><br>{{ selected_agent.current_task or '-' }}</p>
+    <p><strong>Status</strong><br>{{ selected_agent.status_summary or '-' }}</p>
+    {% if agent_runtime %}
+    <p>
+      <strong>Wake state</strong><br>
+      <span class="status-pill {{ agent_runtime.activity_tone }}">{{ agent_runtime.activity_label }}</span>
+      <span class="muted">{{ agent_runtime.activity_detail }}</span>
+    </p>
+    {% endif %}
+    {% if latest_pi_delivery %}
+    <p>
+      <strong>Last PI message</strong><br>
+      <span class="status-pill {{ latest_pi_delivery.tone }}">{{ latest_pi_delivery.label }}</span>
+      <span class="muted">#{{ latest_pi_delivery.message_id }} {{ latest_pi_delivery.when_label }}</span>
+    </p>
+    {% endif %}
+    <p>
+      <strong>Next wake</strong><br>
+      {% if selected_agent.next_wake_at %}
+      <time data-countdown-time datetime="{{ selected_agent.next_wake_at }}" title="{{ selected_agent.next_wake_at }}">{{ selected_agent.next_wake_at|countdown_time }}</time>
+      {% else %}-{% endif %}
+    </p>
+    <form method="post" action="{{ url_for('ops') }}">
+      <input type="hidden" name="agent" value="{{ selected_agent.slug }}">
+      <input type="hidden" name="next" value="{{ current_return_url }}">
+      <button name="action" value="wake" type="submit">Wake now</button>
+      <a class="button" href="{{ url_for('agent_progress', slug=selected_agent.slug) }}">Progress</a>
+    </form>
+    {% else %}
+    <p class="muted"><code>normal</code> sends only. <code>important</code> wakes the direct target, or the mentioned <code>@agent</code>/<code>@all</code> targets in group. Group messages remain visible to every agent on their next wake.</p>
+    {% endif %}
+  </aside>
+</div>
+<script>
+  (() => {
+    const input = document.querySelector("[data-mention-input]");
+    const picker = document.querySelector("[data-mention-picker]");
+    if (!input || !picker) return;
+
+    const options = Array.from(picker.querySelectorAll("[data-mention-option]"));
+    let activeIndex = 0;
+    let trigger = null;
+
+    const currentTrigger = () => {
+      const end = input.selectionStart || 0;
+      const before = input.value.slice(0, end);
+      const match = before.match(/(^|[\s([])@([^\s@]*)$/);
+      if (!match) return null;
+      return { start: end - match[2].length - 1, end, query: match[2].toLowerCase() };
+    };
+
+    const visibleOptions = () => options.filter((option) => !option.hidden);
+
+    const setActive = (index) => {
+      const visible = visibleOptions();
+      if (!visible.length) return;
+      activeIndex = (index + visible.length) % visible.length;
+      visible.forEach((option, i) => option.classList.toggle("active", i === activeIndex));
+    };
+
+    const refreshPicker = () => {
+      trigger = currentTrigger();
+      if (!trigger) {
+        picker.hidden = true;
+        return;
+      }
+      let count = 0;
+      options.forEach((option) => {
+        const haystack = String(option.dataset.search || option.dataset.mention || "").toLowerCase();
+        const matched = !trigger.query || haystack.includes(trigger.query);
+        option.hidden = !matched;
+        if (matched) count += 1;
+      });
+      picker.hidden = count === 0;
+      if (count) setActive(0);
+    };
+
+    const insertMention = (option) => {
+      if (!option || !trigger) return;
+      const mention = `@${option.dataset.mention} `;
+      input.value = `${input.value.slice(0, trigger.start)}${mention}${input.value.slice(trigger.end)}`;
+      const cursor = trigger.start + mention.length;
+      input.focus();
+      input.setSelectionRange(cursor, cursor);
+      picker.hidden = true;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    input.addEventListener("input", refreshPicker);
+    input.addEventListener("click", refreshPicker);
+    input.addEventListener("keyup", (event) => {
+      if (!["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(event.key)) refreshPicker();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (picker.hidden) return;
+      const visible = visibleOptions();
+      if (!visible.length) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+      } else if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        insertMention(visible[activeIndex]);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        picker.hidden = true;
+      }
+    });
+    picker.addEventListener("mousedown", (event) => event.preventDefault());
+    options.forEach((option) => option.addEventListener("click", () => insertMention(option)));
+  })();
+</script>
+{% endblock %}

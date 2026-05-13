@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid three progress-shell" data-progress-root data-agent="{{ progress.agent.slug }}">
+  <aside class="panel sidebar">
+    <h1 class="section-title">Progress</h1>
+    {% for agent in agents %}
+      <a class="{{ 'active' if progress.agent.slug == agent.slug else '' }}" href="{{ url_for('agent_progress', slug=agent.slug) }}">{{ agent.display_name|human_name }}</a>
+    {% endfor %}
+  </aside>
+
+  <section class="panel progress-main">
+    <div class="progress-head">
+      <div>
+        <h2 class="section-title">{{ progress.agent.display_name }}</h2>
+        <div class="actions">
+          <span class="status-pill {{ 'ok' if progress.running else 'idle' }}" data-progress-running>{{ progress.running_label }}</span>
+          <span class="status-pill" data-progress-session>{{ progress.session_label }}</span>
+          <span class="status-pill" data-progress-events>{{ progress.event_count }} readable events</span>
+          <span class="status-pill {{ 'warn' if progress.problem_count else 'ok' }}" data-progress-warnings>{{ progress.problem_count }} warnings</span>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="button" href="{{ url_for('chat', channel='direct:' + progress.agent.slug) }}">Chat</a>
+        <a class="button" href="{{ url_for('logs', target='agent:' + progress.agent.slug) }}">Logs</a>
+      </div>
+    </div>
+
+    <div class="progress-meta">
+      <span class="muted" data-progress-path>{{ progress.path }}</span>
+      <span class="muted" data-progress-updated>{{ progress.modified_at or 'no log yet' }}</span>
+      <span class="muted" data-progress-size>{{ progress.size }} bytes</span>
+    </div>
+
+    <div class="log-timeline" data-progress-cards></div>
+  </section>
+
+  <section class="panel progress-raw-panel">
+    <div class="progress-head compact-head">
+      <h2 class="section-title">Live Raw</h2>
+      <div class="actions">
+        <span class="status-pill" data-progress-raw-lines>0 lines</span>
+        <span class="status-pill">auto refresh</span>
+      </div>
+    </div>
+    <div class="progress-raw-tools">
+      <label class="toggle-pill"><input type="checkbox" data-progress-wrap checked> wrap lines</label>
+      <span class="muted">structured stream view</span>
+    </div>
+    <div class="raw-stream wrap" data-progress-raw-stream></div>
+    <details class="raw-log">
+      <summary>Full raw text</summary>
+      <pre class="pre progress-raw wrap" data-progress-raw></pre>
+    </details>
+  </section>
+</div>
+
+<script id="progress-initial" type="application/json">{{ progress|tojson }}</script>
+<script>
+  (() => {
+    const root = document.querySelector("[data-progress-root]");
+    if (!root) return;
+    const slug = root.dataset.agent;
+    const rawEl = document.querySelector("[data-progress-raw]");
+    const rawStreamEl = document.querySelector("[data-progress-raw-stream]");
+    const rawLinesEl = document.querySelector("[data-progress-raw-lines]");
+    const wrapToggle = document.querySelector("[data-progress-wrap]");
+    const cardsEl = document.querySelector("[data-progress-cards]");
+    const runningEl = document.querySelector("[data-progress-running]");
+    const sessionEl = document.querySelector("[data-progress-session]");
+    const eventsEl = document.querySelector("[data-progress-events]");
+    const warningsEl = document.querySelector("[data-progress-warnings]");
+    const pathEl = document.querySelector("[data-progress-path]");
+    const updatedEl = document.querySelector("[data-progress-updated]");
+    const sizeEl = document.querySelector("[data-progress-size]");
+    let lastRaw = "";
+
+    const setText = (el, text) => {
+      if (el) el.textContent = text || "";
+    };
+
+    const compact = (value, limit = 240) => {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      if (text.length <= limit) return text;
+      return `${text.slice(0, Math.max(0, limit - 1))}\u2026`;
+    };
+
+    const parseIntSafe = (value) => {
+      const n = Number.parseInt(value, 10);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const classifyTone = (line) => {
+      const lower = line.toLowerCase();
+      if (lower.includes("traceback") || lower.includes(" failed") || lower.includes("error")) return "bad";
+      if (lower.includes("warn")) return "warn";
+      return "info";
+    };
+
+    const summarizeEvent = (event) => {
+      const eventType = String(event.type || "").toLowerCase();
+      if (eventType === "thread.started") {
+        const threadId = String(event.thread_id || "").trim();
+        return { label: "session", tone: "ok", text: threadId ? `session resumed: ${threadId}` : "session resumed" };
+      }
+      if (eventType === "turn.started") {
+        return { label: "turn", tone: "info", text: "turn started" };
+      }
+      if (eventType === "turn.completed") {
+        const usage = typeof event.usage === "object" && event.usage ? event.usage : {};
+        const input = parseIntSafe(usage.input_tokens || usage.prompt_tokens || 0);
+        const output = parseIntSafe(usage.output_tokens || usage.completion_tokens || 0);
+        const total = parseIntSafe(usage.total_tokens || input + output);
+        if (input || output || total) {
+          return { label: "usage", tone: "ok", text: `turn completed: in ${input.toLocaleString()} / out ${output.toLocaleString()} / total ${total.toLocaleString()}` };
+        }
+        return { label: "turn", tone: "ok", text: "turn completed" };
+      }
+      if (eventType === "turn.failed") {
+        return { label: "error", tone: "bad", text: `turn failed: ${compact(JSON.stringify(event.error || "unknown"), 200)}` };
+      }
+      if (eventType === "item.completed") {
+        const item = typeof event.item === "object" && event.item ? event.item : {};
+        const itemType = String(item.type || "").toLowerCase();
+        if (itemType === "agent_message") {
+          return { label: "agent", tone: "ok", text: compact(item.text || "agent message") };
+        }
+        if (itemType === "command_execution") {
+          const cmd = compact(item.command || "command", 160);
+          const exitValue = item.exit_code == null ? (item.status || "?") : item.exit_code;
+          return { label: "command", tone: item.exit_code && item.exit_code !== 0 ? "bad" : "info", text: `${cmd} (exit ${exitValue})` };
+        }
+        if (itemType === "file_change") {
+          const changes = Array.isArray(item.changes) ? item.changes.length : 0;
+          return { label: "files", tone: "ok", text: changes ? `file updates: ${changes}` : "file changes applied" };
+        }
+        if (itemType === "error") {
+          return { label: "error", tone: "bad", text: compact(item.message || "item error") };
+        }
+        return { label: itemType || "item", tone: "info", text: compact(JSON.stringify(item), 200) };
+      }
+      return { label: eventType || "json", tone: "info", text: compact(JSON.stringify(event), 200) };
+    };
+
+    const parseRawLine = (line) => {
+      const raw = String(line || "");
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+
+      if (trimmed.startsWith("[hic runner started_at=")) {
+        const when = trimmed.slice("[hic runner started_at=".length).replace(/\]$/, "");
+        return { label: "runner", tone: "ok", text: `wake started at ${when}`, raw };
+      }
+      if (trimmed.startsWith("[hic runner command=")) {
+        const command = trimmed.slice("[hic runner command=".length).replace(/\]$/, "");
+        return { label: "runner", tone: "info", text: compact(command), raw };
+      }
+      if (trimmed.startsWith("[hic persistent_session_id=")) {
+        const sessionId = trimmed.slice("[hic persistent_session_id=".length).replace(/\]$/, "");
+        return { label: "session", tone: "ok", text: `persistent session: ${sessionId}`, raw };
+      }
+      if (trimmed === "<AGENT_RESULT_JSON>" || trimmed === "</AGENT_RESULT_JSON>") {
+        return { label: "result", tone: "ok", text: trimmed, raw };
+      }
+
+      if (trimmed.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed === "object") {
+            const summary = summarizeEvent(parsed);
+            return { ...summary, raw };
+          }
+        } catch (err) {
+          // Continue to plain-line classification.
+        }
+      }
+
+      const tone = classifyTone(trimmed);
+      const label = tone === "bad" ? "error" : tone === "warn" ? "warn" : "log";
+      return { label, tone, text: compact(trimmed), raw };
+    };
+
+    const setPillTone = (el, tone) => {
+      if (!el) return;
+      el.classList.remove("ok", "warn", "bad", "idle");
+      if (tone) el.classList.add(tone);
+    };
+
+    const cardNode = (card) => {
+      const article = document.createElement("article");
+      article.className = `log-card ${card.tone || "info"}`;
+      const head = document.createElement("div");
+      head.className = "log-card-head";
+      const titleWrap = document.createElement("div");
+      const level = document.createElement("span");
+      level.className = "log-level";
+      level.textContent = card.level || card.tone || "info";
+      const title = document.createElement("strong");
+      title.textContent = card.title || "Progress";
+      titleWrap.append(level, title);
+      head.append(titleWrap);
+      if (card.when_label) {
+        const time = document.createElement("time");
+        time.title = card.when || "";
+        time.textContent = card.when_label;
+        head.append(time);
+      }
+      const detail = document.createElement("p");
+      detail.textContent = card.detail || "";
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = "Technical detail";
+      const pre = document.createElement("pre");
+      pre.className = "pre compact";
+      pre.textContent = card.raw || "";
+      details.append(summary, pre);
+      article.append(head, detail, details);
+      return article;
+    };
+
+    const rawRowNode = (lineNo, row) => {
+      const node = document.createElement("div");
+      node.className = `raw-row ${row.tone || "info"}`;
+      node.title = row.raw || row.text || "";
+
+      const no = document.createElement("span");
+      no.className = "raw-line-no";
+      no.textContent = String(lineNo);
+
+      const badge = document.createElement("span");
+      badge.className = "raw-badge";
+      badge.textContent = row.label || "log";
+
+      const text = document.createElement("span");
+      text.className = "raw-line-text";
+      text.textContent = row.text || "";
+
+      node.append(no, badge, text);
+      return node;
+    };
+
+    const renderRawStream = (raw) => {
+      const rows = [];
+      const lines = String(raw || "").split(/\r?\n/);
+      for (const line of lines) {
+        const row = parseRawLine(line);
+        if (row) rows.push(row);
+      }
+
+      setText(rawLinesEl, `${rows.length} lines`);
+      if (!rows.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No raw output yet.";
+        rawStreamEl.replaceChildren(empty);
+        return;
+      }
+
+      const visible = rows.slice(-800);
+      const startNo = rows.length - visible.length + 1;
+      rawStreamEl.replaceChildren(...visible.map((row, idx) => rawRowNode(startNo + idx, row)));
+    };
+
+    const applyWrapMode = () => {
+      const wrap = !wrapToggle || wrapToggle.checked;
+      rawStreamEl.classList.toggle("wrap", wrap);
+      rawEl.classList.toggle("wrap", wrap);
+    };
+
+    if (wrapToggle) {
+      wrapToggle.addEventListener("change", applyWrapMode);
+    }
+
+    const render = (data) => {
+      setText(runningEl, data.running_label || (data.running ? "working" : "not running"));
+      setPillTone(runningEl, data.running ? "ok" : "idle");
+      setText(sessionEl, data.session_label || "");
+      setText(eventsEl, `${data.event_count || 0} readable events`);
+      setText(warningsEl, `${data.problem_count || 0} warnings`);
+      setPillTone(warningsEl, data.problem_count ? "warn" : "ok");
+      setText(pathEl, data.path || "");
+      setText(updatedEl, data.modified_at || "no log yet");
+      setText(sizeEl, `${data.size || 0} bytes`);
+
+      cardsEl.replaceChildren(...(data.cards || []).map(cardNode));
+      if (!(data.cards || []).length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No readable progress yet.";
+        cardsEl.append(empty);
+      }
+
+      const raw = data.raw || "";
+      const streamNearBottom = rawStreamEl.scrollTop + rawStreamEl.clientHeight >= rawStreamEl.scrollHeight - 24;
+      const fullNearBottom = rawEl.scrollTop + rawEl.clientHeight >= rawEl.scrollHeight - 24;
+      if (raw !== lastRaw) {
+        renderRawStream(raw);
+        rawEl.textContent = raw || "No raw output yet.";
+        lastRaw = raw;
+        if (streamNearBottom) rawStreamEl.scrollTop = rawStreamEl.scrollHeight;
+        if (fullNearBottom) rawEl.scrollTop = rawEl.scrollHeight;
+      }
+      applyWrapMode();
+    };
+
+    try {
+      render(JSON.parse(document.getElementById("progress-initial").textContent || "{}"));
+    } catch (err) {
+      rawEl.textContent = String(err);
+      rawStreamEl.textContent = String(err);
+    }
+
+    const poll = async () => {
+      try {
+        const resp = await fetch(`/hic/api/progress/${encodeURIComponent(slug)}?lines=500`, {
+          headers: { "Accept": "application/json" },
+        });
+        if (!resp.ok) return;
+        render(await resp.json());
+      } catch (err) {
+        setText(updatedEl, `refresh failed: ${err}`);
+      }
+    };
+    setInterval(poll, 2000);
+    poll();
+  })();
+</script>
+{% endblock %}

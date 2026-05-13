@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1 class="section-title">Logs</h1>
+  <form class="actions" method="get">
+    <select name="target" style="width: 220px">
+      <option value="daemon" {{ 'selected' if target == 'daemon' else '' }}>daemon</option>
+      <option value="web" {{ 'selected' if target == 'web' else '' }}>web</option>
+      {% for agent in agents %}
+      <option value="agent:{{ agent.slug }}" {{ 'selected' if target == 'agent:' + agent.slug else '' }}>agent: {{ agent.display_name|human_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="lines" style="width: 120px">
+      {% for n in [80, 200, 300, 600] %}<option value="{{ n }}" {{ 'selected' if lines == n else '' }}>{{ n }}</option>{% endfor %}
+    </select>
+    <button type="submit">Refresh</button>
+  </form>
+  <div class="log-summary">
+    <span class="status-pill {{ 'warn' if log_view.problem_count else 'ok' }}">{{ log_view.problem_count }} warnings</span>
+    <span class="status-pill">{{ log_view.event_count }} readable events</span>
+    <span class="muted">{{ path }}</span>
+  </div>
+  <div class="log-timeline">
+    {% for card in log_view.cards %}
+    <article class="log-card {{ card.tone }}">
+      <div class="log-card-head">
+        <div>
+          <span class="log-level">{{ card.level or card.tone }}</span>
+          <strong>{{ card.title }}</strong>
+        </div>
+        {% if card.when_label %}<time title="{{ card.when }}">{{ card.when_label }}</time>{% endif %}
+      </div>
+      <p>{{ card.detail }}</p>
+      <details>
+        <summary>Technical detail</summary>
+        <pre class="pre compact">{{ card.raw }}</pre>
+      </details>
+    </article>
+    {% else %}
+    <p class="muted">No log entries yet.</p>
+    {% endfor %}
+  </div>
+  <details class="raw-log">
+    <summary>Full raw tail</summary>
+    <pre class="pre">{{ content }}</pre>
+  </details>
+</section>
+{% endblock %}

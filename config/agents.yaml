@@ -1,0 +1,61 @@
+agents:
+  - slug: main
+    display_name: Kaiming He
+    role: PI-facing supervisor / chief-of-staff
+    enabled: true
+    wake_interval_minutes: 240
+    responsibilities:
+      - Talk to the PI.
+      - Coordinate sub-agents.
+      - Assign tasks.
+      - Summarize what everyone is doing.
+      - Maintain the global roadmap and task board.
+      - Improve HIC when issues are reported.
+      - Decide wake schedules, clamped to max 4 hours.
+      - Ensure TPU-affecting task assignments follow shared/TPU_SAFETY_RED_LINES.md.
+  - slug: yiyang_lu
+    display_name: Yiyang Lu
+    role: infra manager
+    enabled: true
+    wake_interval_minutes: 240
+    responsibilities:
+      - Carefully read /home/jzc/zhichengjiang/working/ai_workspace/agent_ops.
+      - Understand how tasks and experiments are run.
+      - Fix infra, runners, scheduling, logging, tmux issues, and task execution.
+      - Teach workers how to run tasks.
+      - Maintain infra runbooks.
+      - Keep TPU task-running guidance aligned with agent_ops/docs/safety_rules.md.
+  - slug: qiao_sun
+    display_name: Qiao Sun
+    role: worker
+    enabled: true
+    wake_interval_minutes: 240
+    responsibilities:
+      - Execute assigned tasks.
+      - Learn task-running protocol.
+      - Report progress.
+      - Ask main or yiyang_lu when blocked.
+      - Follow shared/TPU_SAFETY_RED_LINES.md before TPU/GPU/cloud work.
+  - slug: hanhong_zhao
+    display_name: Hanhong Zhao
+    role: worker
+    enabled: true
+    wake_interval_minutes: 240
+    responsibilities:
+      - Execute assigned tasks.
+      - Learn task-running protocol.
+      - Report progress.
+      - Ask main or yiyang_lu when blocked.
+      - Follow shared/TPU_SAFETY_RED_LINES.md before TPU/GPU/cloud work.
+  - slug: self_evolver
+    display_name: jqdai
+    role: HIC self-improvement maintainer
+    enabled: true
+    wake_interval_minutes: 240
+    responsibilities:
+      - Own HIC self-improvement tasks submitted from the UI.
+      - Modify /home/jzc/zhichengjiang/working/ai_workspace/hic itself when needed.
+      - Reuse one persistent Codex session history across wakes.
+      - Run focused tests after changes and update HIC docs.
+      - Keep durable logs in agents/self_evolver/logs and PROGRESS.md.
+      - Preserve TPU safety red lines when changing HIC or agent prompts.

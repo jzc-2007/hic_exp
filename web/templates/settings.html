@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+{% if result %}<div class="flash">{{ result }}</div>{% endif %}
+<div class="grid two">
+  <section class="panel">
+    <h1 class="section-title">Agents</h1>
+    <table>
+      <thead><tr><th>Agent</th><th>Role</th><th>Enabled</th></tr></thead>
+      <tbody>
+        {% for agent in agents %}
+        <tr>
+          <td>{{ agent.display_name|human_name }}<br><span class="muted">{{ agent.slug }}</span></td>
+          <td>{{ agent.role }}</td>
+          <td>
+            <form method="post">
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="slug" value="{{ agent.slug }}">
+              <input type="hidden" name="enabled" value="{{ '0' if agent.enabled else '1' }}">
+              <button type="submit">{{ 'Disable' if agent.enabled else 'Enable' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h2 class="section-title" style="margin-top: 18px">Add Agent</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="add">
+      <div class="form-row">
+        <label>Slug <input name="slug" required></label>
+        <label>Name <input name="display_name" required></label>
+        <label>Role <input name="role" required></label>
+      </div>
+      <div style="height: 10px"></div>
+      <label>Responsibilities
+        <textarea name="responsibilities"></textarea>
+      </label>
+      <div style="height: 10px"></div>
+      <button class="primary" type="submit">Add agent</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2 class="section-title">config/agents.yaml</h2>
+    <div class="yaml">{{ agents_yaml }}</div>
+  </section>
+</div>
+<section class="panel" style="margin-top: 16px">
+  <h2 class="section-title">Onboarding</h2>
+  <div class="markdown">{{ onboarding }}</div>
+</section>
+{% endblock %}

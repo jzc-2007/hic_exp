@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two">
+  <section class="panel">
+    <h1 class="section-title">System</h1>
+    <div class="actions">
+      <span class="status-pill {{ 'ok' if snapshot.daemon_alive else 'bad' }}">daemon {{ 'alive' if snapshot.daemon_alive else 'not alive' }}</span>
+      <span class="status-pill {{ 'ok' if snapshot.db.ok else 'bad' }}">db {{ 'ok' if snapshot.db.ok else 'missing tables' }}</span>
+      <span class="status-pill">runner {{ snapshot.runner_mode }}</span>
+      <span class="status-pill">web {{ snapshot.web.host }}:{{ snapshot.web.port }}/hic</span>
+    </div>
+  </section>
+  <section class="panel">
+    <h2 class="section-title">Fast Actions</h2>
+    <form class="actions" method="post" action="{{ url_for('ops') }}">
+      <button class="primary" name="action" value="wake" type="submit">Wake main</button>
+      <input type="hidden" name="agent" value="main">
+      <input type="hidden" name="next" value="{{ current_return_url }}">
+    </form>
+    <form class="actions" method="post" action="{{ url_for('ops') }}" style="margin-top: 8px">
+      <button name="action" value="wake_all" type="submit">Wake all</button>
+      <input type="hidden" name="next" value="{{ current_return_url }}">
+      <a class="button" href="{{ url_for('chat', channel='group') }}">Open group chat</a>
+      <a class="button" href="{{ url_for('self_improve') }}">Report issue</a>
+    </form>
+  </section>
+</div>
+
+<section class="panel" style="margin-top: 16px">
+  <h2 class="section-title">Agents</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Agent</th>
+        <th>Role</th>
+        <th>State</th>
+        <th>Wake</th>
+        <th>Current work</th>
+        <th>Summary</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for agent in snapshot.agents %}
+      <tr>
+        <td><strong>{{ agent.display_name|human_name }}</strong><br><span class="muted">{{ agent.slug }}</span></td>
+        <td>{{ agent.role }}</td>
+        <td>
+          <span class="status-pill {{ 'ok' if agent.enabled else 'bad' }}">{{ 'enabled' if agent.enabled else 'disabled' }}</span>
+          <span class="status-pill {{ agent.activity_tone }}" title="{{ agent.activity_detail }}">{{ agent.activity_label }}</span>
+          {% if agent.pending_wakes and not agent.running %}<span class="status-pill warn">wake queued</span>{% endif %}
+          {% if agent|overdue %}<span class="status-pill bad">overdue</span>{% endif %}
+        </td>
+        <td>
+          <div>
+            <span class="muted">last</span>
+            {% if agent.last_wake_at %}
+            <time data-relative-time datetime="{{ agent.last_wake_at }}" title="{{ agent.last_wake_at }}">{{ agent.last_wake_at|relative_time }}</time>
+            {% else %}-{% endif %}
+          </div>
+          <div>
+            <span class="muted">next</span>
+            {% if agent.next_wake_at %}
+            <time data-countdown-time datetime="{{ agent.next_wake_at }}" title="{{ agent.next_wake_at }}">{{ agent.next_wake_at|countdown_time }}</time>
+            {% else %}-{% endif %}
+          </div>
+        </td>
+        <td>{{ agent.current_task or '-' }}</td>
+        <td>{{ agent.status_summary or '-' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('ops') }}" class="actions">
+            <input type="hidden" name="agent" value="{{ agent.slug }}">
+            <input type="hidden" name="next" value="{{ current_return_url }}">
+            <button name="action" value="wake" type="submit">Wake</button>
+            <a class="button" href="{{ url_for('chat', channel='direct:' + agent.slug) }}">Chat</a>
+            <a class="button" href="{{ url_for('agent_progress', slug=agent.slug) }}">Progress</a>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

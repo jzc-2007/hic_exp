@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two">
+  <section class="panel">
+    <h1 class="section-title">Ops</h1>
+    <div class="actions">
+      <form method="post">
+        <select name="agent" style="width: 180px">
+          {% for agent in agents %}<option value="{{ agent.slug }}">{{ agent.display_name|human_name }}</option>{% endfor %}
+        </select>
+        <button name="action" value="wake" type="submit">Wake agent</button>
+      </form>
+      <form method="post"><button class="primary" name="action" value="wake_all" type="submit">Wake all</button></form>
+      <form method="post"><button name="action" value="doctor" type="submit">Run doctor</button></form>
+      <form method="post"><button name="action" value="tests" type="submit">Run tests</button></form>
+      <form method="post"><button class="warn" name="action" value="restart_daemon" type="submit">Restart daemon</button></form>
+      <form method="post"><button name="action" value="reload_config" type="submit">Reload config</button></form>
+      <form method="post"><button name="action" value="db_health" type="submit">DB health</button></form>
+    </div>
+    {% if result %}
+    <h2 class="section-title" style="margin-top: 18px">Result</h2>
+    <div class="status-pill {{ 'ok' if result.returncode == 0 else 'bad' }}">exit {{ result.returncode }}</div>
+    <pre class="pre">{{ result.output }}</pre>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2 class="section-title">Status</h2>
+    <p><span class="status-pill {{ 'ok' if snapshot.daemon_alive else 'bad' }}">daemon {{ 'alive' if snapshot.daemon_alive else 'not alive' }}</span></p>
+    <p>
+      <strong>Overdue</strong><br>
+      {% if snapshot.overdue_agents %}
+        {% for slug in snapshot.overdue_agents %}
+        <span class="status-pill bad">{{ slug|human_name }}</span>
+        {% endfor %}
+      {% else %}
+      none
+      {% endif %}
+    </p>
+    <p><strong>DB</strong><br>{{ snapshot.db.path }} | {{ 'ok' if snapshot.db.ok else 'missing ' + snapshot.db.missing_tables|join(', ') }}</p>
+    <p><strong>Runner</strong><br>{{ snapshot.runner_mode }}</p>
+  </section>
+</div>
+<div class="grid two" style="margin-top: 16px">
+  <section class="panel"><h2 class="section-title">Daemon Log</h2><pre class="pre">{{ recent_daemon }}</pre></section>
+  <section class="panel"><h2 class="section-title">Web Log</h2><pre class="pre">{{ recent_web }}</pre></section>
+</div>
+{% endblock %}
