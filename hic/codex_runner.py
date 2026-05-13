@@ -28,18 +28,67 @@ class RunnerResult:
     log_path: Path | None = None
 
 
-def default_result(agent_slug: str, reason: str = "fallback") -> dict[str, Any]:
+def extract_agent_messages(raw_output: str, limit: int = 4000) -> list[str]:
+    messages: list[str] = []
+    for line in raw_output.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("{"):
+            continue
+        try:
+            event = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if str(event.get("type") or "").lower() != "item.completed":
+            continue
+        item = event.get("item")
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("type") or "").lower() != "agent_message":
+            continue
+        text = str(item.get("text") or "").strip()
+        if text:
+            messages.append(text)
+
+    if not messages and "[hic assistant text]" in raw_output:
+        text = raw_output.split("[hic assistant text]", 1)[1].strip()
+        if text:
+            messages.append(text)
+
+    clipped: list[str] = []
+    for text in messages[-3:]:
+        if len(text) > limit:
+            text = text[: limit - 3].rstrip() + "..."
+        clipped.append(text)
+    return clipped
+
+
+def default_result(
+    agent_slug: str,
+    reason: str = "fallback",
+    assistant_messages: list[str] | None = None,
+) -> dict[str, Any]:
+    messages_to_send = [
+        {
+            "recipient": "pi",
+            "body": message,
+            "priority": 1,
+            "wakes_recipient": False,
+        }
+        for message in assistant_messages or []
+        if message.strip()
+    ]
     return {
         "status_summary": f"{agent_slug} completed a {reason} wake.",
         "current_task": "Reviewing messages and deciding whether work is needed.",
         "next_wake_minutes": 240,
-        "messages_to_send": [],
+        "messages_to_send": messages_to_send,
         "wake_requests": [],
         "tasks_to_update": [],
     }
 
 
 def parse_agent_result(raw_output: str, agent_slug: str) -> tuple[dict[str, Any], str | None]:
+    assistant_messages = extract_agent_messages(raw_output)
     matches = list(RESULT_RE.finditer(raw_output))
     candidate = matches[-1].group(1) if matches else ""
     if not candidate:
@@ -48,13 +97,13 @@ def parse_agent_result(raw_output: str, agent_slug: str) -> tuple[dict[str, Any]
         if start >= 0 and end > start:
             candidate = raw_output[start : end + 1]
     if not candidate:
-        return default_result(agent_slug, "unparsed"), "missing AGENT_RESULT_JSON"
+        return default_result(agent_slug, "unparsed", assistant_messages), "missing AGENT_RESULT_JSON"
     try:
         data = json.loads(candidate)
     except json.JSONDecodeError as exc:
-        return default_result(agent_slug, "parse-error"), str(exc)
+        return default_result(agent_slug, "parse-error", assistant_messages), str(exc)
     if not isinstance(data, dict):
-        return default_result(agent_slug, "invalid"), "result JSON is not an object"
+        return default_result(agent_slug, "invalid", assistant_messages), "result JSON is not an object"
     data.setdefault("status_summary", f"{agent_slug} woke successfully.")
     data.setdefault("current_task", "Reviewing messages and deciding whether work is needed.")
     data.setdefault("next_wake_minutes", 240)

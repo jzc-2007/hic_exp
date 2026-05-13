@@ -32,7 +32,12 @@ On every wake, an agent must:
    - Keep both files bounded (target <= 8 KB each). Summarize older content
      instead of unbounded growth.
    - Use `python3 scripts/hicctl.py compact-notes` to compact notes when needed.
-14. Reply in the same channel as the source message:
+14. Never stop or restart HIC from inside your own wake. Do not run
+   `scripts/stop_all.sh`, `scripts/restart_all.sh`, `scripts/stop_daemon.sh`,
+   or kill `hic_daemon`/`hic_web`; that can interrupt your runner before a
+   chat reply is sent. If HIC needs a restart, message PI and ask the outer
+   operator to do it.
+15. Reply in the same channel as the source message:
    - Answer group messages in group chat with `recipient: "group"`.
    - Answer PI direct/private messages with `recipient: "pi"`.
    - Do not move a group thread into direct/private chat unless the human
@@ -40,8 +45,8 @@ On every wake, an agent must:
    - Group messages are visible to every agent on their next wake. `@agent`
      and `@all` affect wake targeting only; they do not make the message
      private or hide it from other agents.
-15. Request wakeups if needed.
-16. Return AGENT_RESULT_JSON.
+16. Request wakeups if needed.
+17. Return AGENT_RESULT_JSON.
 
 Agents end each run with:
 
@@ -118,4 +123,5 @@ When there are no active assigned/open tasks after processing messages, request
 `self_evolver` owns HIC self-improvement work. It may edit
 `/home/jzc/zhichengjiang/working/ai_workspace/hic` and should keep logs plus
 PROGRESS.md up to date. Like every HIC agent, it uses a persistent Codex
-session history across wakes.
+session history across wakes. It must not restart or stop HIC from inside its
+own wake; request an outside restart through chat instead.

@@ -1,5 +1,5 @@
 from hic import db
-from hic.codex_runner import CodexRunner, parse_agent_result
+from hic.codex_runner import CodexRunner, extract_agent_messages, parse_agent_result
 from hic.config import ensure_project_structure, load_agents, load_settings
 from hic.message_bus import recent_for_agent
 
@@ -27,6 +27,35 @@ def test_parse_fallback_is_safe():
     parsed, err = parse_agent_result("not json", "main")
     assert err
     assert parsed["next_wake_minutes"] == 240
+    assert parsed["messages_to_send"] == []
+
+
+def test_extract_agent_messages_from_codex_json_stream():
+    raw = (
+        '{"type":"turn.started"}\n'
+        '{"type":"item.completed","item":{"id":"item_0","type":"agent_message",'
+        '"text":"I read the message and started work."}}\n'
+    )
+    assert extract_agent_messages(raw) == ["I read the message and started work."]
+
+
+def test_parse_fallback_sends_unstructured_agent_message():
+    raw = (
+        '{"type":"thread.started","thread_id":"thread-1"}\n'
+        '{"type":"item.completed","item":{"id":"item_0","type":"agent_message",'
+        '"text":"I saw this and am checking it now."}}\n'
+        '{"type":"turn.completed"}\n'
+    )
+    parsed, err = parse_agent_result(raw, "self_evolver")
+    assert err
+    assert parsed["messages_to_send"] == [
+        {
+            "recipient": "pi",
+            "body": "I saw this and am checking it now.",
+            "priority": 1,
+            "wakes_recipient": False,
+        }
+    ]
 
 
 def test_parse_uses_last_tagged_result():
@@ -117,6 +146,7 @@ def test_agent_prompt_explains_channel_reply_routing_and_group_visibility(sample
     assert 'messages_to_send[].recipient to "pi"' in prompt
     assert "mentions only affect wake targeting, not visibility" in prompt
     assert "persistent Codex session resumed across wakes" in prompt
+    assert "Never stop or restart HIC from inside your own wake" in prompt
 
 
 def test_yiyang_prompt_does_not_repeat_first_wake_infra_when_runbook_exists(sample_root):

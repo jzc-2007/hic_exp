@@ -82,3 +82,7 @@
   `Live Codex` terminal-style view; raw JSON remains available on demand.
 - Limited the deterministic daily status pusher to stage only
   `shared/DAILY_STATUS.md`, avoiding accidental runtime or scratch-file commits.
+- Added a HIC self-restart guard: agents must ask the outer operator for HIC
+  restarts instead of stopping their own daemon/web process mid-wake.
+- Added a runner fallback that turns unstructured Codex `agent_message` output
+  into a normal PI chat reply when AGENT_RESULT_JSON is missing or malformed.
