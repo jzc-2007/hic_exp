@@ -111,6 +111,10 @@ Wake order:
      explicitly asks for a private reply.
    - Recent group messages are visible to every agent on their next wake; @
      mentions only affect wake targeting, not visibility.
+   - To send downloadable files to PI, write them under
+     agents/{agent.slug}/outbox/ and include their paths in
+     messages_to_send[].attachments. HIC will copy those files into the web
+     attachment store and show download links in chat.
 10. If there are no active assigned/open tasks after processing messages, set
    next_wake_minutes to 240.
 11. If work could start/resume/kill/reconfigure TPU jobs, run fresh TPU audits,

@@ -45,12 +45,16 @@ On every wake, an agent must:
    - Group messages are visible to every agent on their next wake. `@agent`
      and `@all` affect wake targeting only; they do not make the message
      private or hide it from other agents.
-16. If blocked or materially uncertain, use `questions_to_ask` instead of
+16. To send PI downloadable files, write them under `agents/<slug>/outbox/`
+   and include those paths in `messages_to_send[].attachments`. HIC copies the
+   files into `var/uploads/agent-artifacts/` and shows normal chat attachment
+   links. Files outside your own `outbox/` are rejected.
+17. If blocked or materially uncertain, use `questions_to_ask` instead of
    guessing. Ask at most three concrete PI-facing questions. HIC will send
    them to PI, mark the agent as `needs input`, and resume the same Codex
    session when PI replies with an important message.
-17. Request wakeups if needed.
-18. Return AGENT_RESULT_JSON.
+18. Request wakeups if needed.
+19. Return AGENT_RESULT_JSON.
 
 Agents end each run with:
 
@@ -61,7 +65,12 @@ Agents end each run with:
   "current_task": "short description",
   "next_wake_minutes": 240,
   "messages_to_send": [
-    {"recipient": "group", "body": "...", "priority": 1}
+    {
+      "recipient": "group",
+      "body": "...",
+      "priority": 1,
+      "attachments": ["agents/qiao_sun/outbox/report.md"]
+    }
   ],
   "wake_requests": [
     {"target_agent": "yiyang_lu", "reason": "..."}

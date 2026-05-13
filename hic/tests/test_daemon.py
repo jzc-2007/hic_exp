@@ -284,6 +284,69 @@ def test_direct_origin_pi_replies_stay_direct(sample_root, monkeypatch):
         check.close()
 
 
+def test_agent_can_send_outbox_file_as_chat_attachment(sample_root, monkeypatch):
+    ensure_project_structure(sample_root)
+    conn = db.connect(root=sample_root)
+    try:
+        db.init_db(conn)
+        db.upsert_agents(conn, load_agents(sample_root))
+        send_message(conn, "pi", "qiao_sun", "send me the report", priority=2)
+    finally:
+        conn.close()
+
+    outbox = sample_root / "agents" / "qiao_sun" / "outbox"
+    outbox.mkdir(parents=True, exist_ok=True)
+    report = outbox / "report.md"
+    report.write_text("# Report\n\nhello from qiao\n", encoding="utf-8")
+
+    class FakeRunner:
+        def __init__(self, root, settings):
+            self.root = root
+
+        def run(self, agent, group_messages, direct_messages, tasks):
+            return RunnerResult(
+                "",
+                {
+                    "status_summary": "sent report",
+                    "current_task": "done",
+                    "next_wake_minutes": 240,
+                    "messages_to_send": [
+                        {
+                            "recipient": "pi",
+                            "body": "Report attached.",
+                            "priority": 1,
+                            "attachments": ["agents/qiao_sun/outbox/report.md"],
+                        },
+                    ],
+                    "wake_requests": [],
+                    "tasks_to_update": [],
+                },
+                "mock",
+                None,
+                None,
+            )
+
+    monkeypatch.setattr("hic.daemon.CodexRunner", FakeRunner)
+    qiao = next(agent for agent in load_agents(sample_root) if agent.slug == "qiao_sun")
+    assert run_agent_once(sample_root, qiao, load_settings(sample_root), reason="test")
+
+    check = db.connect(root=sample_root)
+    try:
+        direct_messages = list_messages(check, channel="direct:qiao_sun")
+        reply = direct_messages[-1]
+        assert reply["sender"] == "qiao_sun"
+        assert reply["recipient"] == "pi"
+        assert "Report attached." in reply["body"]
+        assert "Attachments:" in reply["body"]
+        attachments = db.list_attachments(check, [int(reply["id"])])[int(reply["id"])]
+        assert attachments[0]["filename"] == "report.md"
+        stored = sample_root / attachments[0]["stored_path"]
+        assert stored.exists()
+        assert stored.read_text(encoding="utf-8") == "# Report\n\nhello from qiao\n"
+    finally:
+        check.close()
+
+
 def test_agent_questions_are_sent_to_pi_and_mark_need_input(sample_root, monkeypatch):
     ensure_project_structure(sample_root)
     conn = db.connect(root=sample_root)

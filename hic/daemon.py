@@ -11,6 +11,7 @@ import time
 import traceback
 
 from . import db
+from .artifacts import append_attachment_report, attach_agent_artifacts
 from .codex_runner import CodexRunner, append_progress
 from .config import AgentConfig, ensure_project_structure, load_agents, load_settings, write_status_file
 from .message_bus import (
@@ -250,9 +251,13 @@ def run_agent_once(root: Path, agent: AgentConfig, settings: dict, reason: str =
                 if not isinstance(msg, dict):
                     continue
                 body = str(msg.get("body") or "").strip()
+                attachments = msg.get("attachments") or []
+                if not isinstance(attachments, list):
+                    attachments = []
                 requested_recipient = str(msg.get("recipient") or "group").strip()
                 recipient = route_agent_reply_recipient(requested_recipient, recent["group"], recent["direct"])
-                if body:
+                if body or attachments:
+                    send_body = body or "Attached file(s)."
                     if recipient != requested_recipient:
                         db.insert_event(
                             conn,
@@ -262,17 +267,31 @@ def run_agent_once(root: Path, agent: AgentConfig, settings: dict, reason: str =
                                 "from": requested_recipient,
                                 "to": recipient,
                                 "reason": "latest PI prompt was in group chat",
-                                "body": body[:500],
+                                "body": send_body[:500],
                             },
                         )
-                    send_message(
+                    message_id = send_message(
                         conn,
                         sender=agent.slug,
                         recipient=recipient,
-                        body=body,
+                        body=send_body,
                         priority=int(msg.get("priority") or 1),
                         wakes_recipient=bool(msg.get("wakes_recipient", True)),
                     )
+                    if attachments:
+                        saved, errors = attach_agent_artifacts(root, conn, message_id, agent.slug, attachments)
+                        if saved or errors:
+                            db.update_message_body(conn, message_id, append_attachment_report(send_body, saved, errors))
+                            db.insert_event(
+                                conn,
+                                "agent_attachments",
+                                agent.slug,
+                                {
+                                    "message_id": message_id,
+                                    "saved": [item["filename"] for item in saved],
+                                    "errors": errors,
+                                },
+                            )
             for question in questions:
                 send_message(
                     conn,

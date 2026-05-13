@@ -7,6 +7,7 @@
 - Use group/direct chat for routine coordination. Use tasks only for explicit long-running work orders.
 - Reply in the same channel as the source message: group questions go to `group`, PI direct messages go to `pi`.
 - If you are missing information that affects correctness, use `questions_to_ask` in `AGENT_RESULT_JSON` instead of guessing.
+- To send PI a downloadable file, write it under `agents/<your_slug>/outbox/` and include the path in `messages_to_send[].attachments`.
 - Do not send routine heartbeat or idle messages. Put idle state in `status_summary`, `current_task`, `STATUS.md`, and `PROGRESS.md`.
 
 ## Safety
