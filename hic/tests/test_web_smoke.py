@@ -83,7 +83,9 @@ def test_web_routes_and_forms(sample_root):
         assert any(wake["reason"] == "important task 2" for wake in wakes_after_task)
     finally:
         conn.close()
-    assert client.get("/hic/ops").status_code == 200
+    ops_page = client.get("/hic/ops")
+    assert ops_page.status_code == 200
+    assert b"Restart HIC" in ops_page.data
     resp = client.post(
         "/hic/ops",
         data={"action": "wake", "agent": "main", "next": "/hic/chat?channel=direct:main"},
@@ -159,3 +161,20 @@ def test_codex_status_timeout_falls_back_without_500(sample_root, monkeypatch):
     summary = codex_usage_summary(sample_root)
     assert summary["available"] is False
     assert summary["label"] == "Codex /status: -"
+
+
+def test_ops_restart_all_schedules_deferred_restart(sample_root, monkeypatch):
+    app = create_app(sample_root)
+    app.config.update(TESTING=True)
+    client = app.test_client()
+    called = {}
+
+    def fake_schedule(root):
+        called["root"] = root
+        return {"returncode": 0, "output": "scheduled full restart"}
+
+    monkeypatch.setattr("hic.webapp.schedule_restart_all", fake_schedule)
+    resp = client.post("/hic/ops", data={"action": "restart_all"})
+    assert resp.status_code == 200
+    assert called["root"] == sample_root
+    assert b"scheduled full restart" in resp.data

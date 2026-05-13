@@ -23,7 +23,7 @@
 - Chat 发送框默认优先级是 `important`（`2`）；需要“只发送不立即唤醒”时手动改成 `normal`（`1`）。
 - `Tasks`：少数显式长任务/工单才用；日常协作默认走 group/direct chat。
 - `Guide`：当前文档。
-- `Ops`：安全运维动作（wake、tests、doctor、restart daemon、reload config）。
+- `Ops`：安全运维动作（wake、tests、doctor、restart daemon、Restart HIC、reload config）。`Restart HIC` 会先返回页面结果，再延迟重启 daemon/web/daily update，适合在 agent 完成回复后手动应用新代码。
 - `Logs`：先看人类可读的事件卡片，需要时再展开原始终端细节。
 - `Settings`：启停 agent、添加 agent、查看 `config/agents.yaml`。
 - `Self-Improve`：提交系统改进请求，自动落到任务和 incident 记录。
@@ -54,6 +54,7 @@
 - HIC bug、UI 请求、困惑行为、缺少的 workflow，都丢到 Self-Improve。
 - 提交后会写入 `shared/INCIDENTS.md`，给 `jqdai` 发 direct message，并 wake 它；不自动创建 routine task。
 - `jqdai` 是第 5 个 agent（slug 仍是 `self_evolver`），专门维护 HIC 本身；它可以修改这个仓库。所有 agent 都复用自己的 Codex 历史。
+- 如果 `jqdai` 改了需要重启才生效的代码，它会先完成测试/提交/回复，然后请你到 `Ops` 点 `Restart HIC`；它不应该在自己的 wake 里重启 HIC。
 
 ## 5. 时间与名称显示规则
 

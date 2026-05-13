@@ -11,7 +11,7 @@
 
 ## Safety
 
-- Never stop or restart HIC from inside your own wake. Do not run `scripts/stop_all.sh`, `scripts/restart_all.sh`, `scripts/stop_daemon.sh`, or kill `hic_daemon`/`hic_web`. If a restart is needed, ask PI or the outside operator.
+- Never stop or restart HIC from inside your own wake. Do not run `scripts/stop_all.sh`, `scripts/restart_all.sh`, `scripts/stop_daemon.sh`, or kill `hic_daemon`/`hic_web`. If a restart is needed, ask PI or the outside operator to use Ops -> Restart HIC after your wake has finished.
 - Before any work that may affect TPU/GPU/cloud jobs, queues, dashboards, data movement, or shared cluster state, read `shared/TPU_SAFETY_RED_LINES.md` and use the `tpu-safety` skill.
 - Do not start, resume, kill, delete, restart, resize, reconfigure, dequeue, requeue, or submit TPU/cloud work without explicit current-turn user authorization.
 

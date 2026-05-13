@@ -50,7 +50,7 @@ def build_agent_prompt(
         "- Never stop or restart HIC from inside your own wake. Do not run `scripts/stop_all.sh`, "
         "`scripts/restart_all.sh`, `scripts/stop_daemon.sh`, or kill `hic_daemon`/`hic_web`; "
         "that can interrupt your runner before a chat reply is sent. If HIC needs a restart, "
-        "send PI a message asking the outer operator to do it.\n"
+        "send PI a message asking the outer operator to use Ops -> Restart HIC after your wake finishes.\n"
     )
     special = ""
     if agent.slug == "yiyang_lu":

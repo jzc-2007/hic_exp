@@ -14,6 +14,9 @@
       <form method="post"><button name="action" value="doctor" type="submit">Run doctor</button></form>
       <form method="post"><button name="action" value="tests" type="submit">Run tests</button></form>
       <form method="post"><button class="warn" name="action" value="restart_daemon" type="submit">Restart daemon</button></form>
+      <form method="post" onsubmit="return confirm('Restart daemon, web, and daily update now?');">
+        <button class="warn" name="action" value="restart_all" type="submit">Restart HIC</button>
+      </form>
       <form method="post"><button name="action" value="reload_config" type="submit">Reload config</button></form>
       <form method="post"><button name="action" value="db_health" type="submit">DB health</button></form>
     </div>

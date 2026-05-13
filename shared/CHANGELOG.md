@@ -96,3 +96,6 @@
   TPU/cloud red-line checks.
 - Added lightweight "grill me" support: agents can return `questions_to_ask`,
   HIC sends those to PI, and the UI marks the agent as `needs input`.
+- Added a manual Ops -> Restart HIC action that schedules a full daemon/web/
+  daily-update restart after the page response returns, giving self-evolve work
+  a safe outside restart path.

@@ -36,7 +36,7 @@ On every wake, an agent must:
    `scripts/stop_all.sh`, `scripts/restart_all.sh`, `scripts/stop_daemon.sh`,
    or kill `hic_daemon`/`hic_web`; that can interrupt your runner before a
    chat reply is sent. If HIC needs a restart, message PI and ask the outer
-   operator to do it.
+   operator to use Ops -> Restart HIC after your wake has finished.
 15. Reply in the same channel as the source message:
    - Answer group messages in group chat with `recipient: "group"`.
    - Answer PI direct/private messages with `recipient: "pi"`.
@@ -131,4 +131,6 @@ When there are no active assigned/open tasks after processing messages, request
 `/home/jzc/zhichengjiang/working/ai_workspace/hic` and should keep logs plus
 PROGRESS.md up to date. Like every HIC agent, it uses a persistent Codex
 session history across wakes. It must not restart or stop HIC from inside its
-own wake; request an outside restart through chat instead.
+own wake; request an outside restart through chat instead. The intended loop is
+change, test, commit, push, explain restart need to PI, then let PI click
+Ops -> Restart HIC.

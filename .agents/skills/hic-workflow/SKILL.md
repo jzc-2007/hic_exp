@@ -12,7 +12,7 @@ description: Use for HIC self-improvement work, dashboard/daemon/runner changes,
 3. Preserve PI-facing behavior unless the request explicitly changes it.
 4. If you change shared behavior, update tests and `shared/CHANGELOG.md`.
 5. Run focused tests first, then all `hic/tests` when the change touches daemon, runner, DB, prompts, or UI state.
-6. Restart only from outside an agent wake. If you are running as a HIC agent and a restart is needed, ask PI or the outside operator.
+6. Restart only from outside an agent wake. If you are running as a HIC agent and a restart is needed, ask PI or the outside operator to use Ops -> Restart HIC after your wake finishes.
 7. When committing, stage only intentional files and push to `origin main`.
 
 ## Grill Me / Clarification
@@ -50,5 +50,6 @@ In the final `AGENT_RESULT_JSON`, include `questions_to_ask`:
 ## Guardrails
 
 - Do not run `scripts/stop_all.sh` or `scripts/restart_all.sh` from inside a HIC agent wake.
+- Finish the reply first, then let the outside Ops restart apply the new code.
 - Do not commit runtime state: logs, SQLite DB, uploads, Codex session ids, pycache, or scratch files.
 - If HIC behavior is confusing to PI, prefer making state visible in Dashboard/Chat over adding hidden queues.

@@ -74,6 +74,34 @@ def safe_run(root: Path, args: list[str], timeout: int = 180) -> dict[str, Any]:
     return {"returncode": proc.returncode, "output": output[-20000:], "command": " ".join(args)}
 
 
+def schedule_restart_all(root: Path, delay_seconds: int = 2) -> dict[str, Any]:
+    run_dir = root / "var" / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_path = run_dir / "restart_all.log"
+    stamp = iso()
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n[{stamp}] scheduled full HIC restart from Ops\n")
+    command = (
+        f"sleep {int(delay_seconds)}; "
+        f"cd {shlex.quote(str(root))} && "
+        f"bash scripts/restart_all.sh >> {shlex.quote(str(log_path))} 2>&1"
+    )
+    subprocess.Popen(
+        ["bash", "-lc", command],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    output = (
+        f"Full HIC restart scheduled in {delay_seconds}s.\n"
+        "Refresh /hic in about 10 seconds.\n"
+        f"Log: {log_path}"
+    )
+    (run_dir / "last_ops_output.txt").write_text(output, encoding="utf-8")
+    return {"returncode": 0, "output": output, "command": "deferred scripts/restart_all.sh"}
+
+
 def safe_return_url(value: str | None) -> str:
     target = str(value or "").strip()
     if not target or target.startswith("//"):
@@ -823,6 +851,8 @@ def create_app(root: Path | str | None = None) -> Flask:
                     result = safe_run(root, ["bash", "scripts/run_tests.sh"], timeout=600)
                 elif action == "restart_daemon":
                     result = safe_run(root, ["bash", "scripts/restart_daemon.sh"], timeout=60)
+                elif action == "restart_all":
+                    result = schedule_restart_all(root)
                 elif action == "reload_config":
                     db.upsert_agents(conn, load_agents(root))
                     result = {"output": "Config reloaded into database", "returncode": 0}
