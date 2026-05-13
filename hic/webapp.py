@@ -227,15 +227,18 @@ def _run_codex_status(root: Path) -> dict[str, Any] | None:
     if model:
         cmd.extend(["-m", model])
     cmd.append("/status")
-    proc = subprocess.run(
-        cmd,
-        cwd=root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        timeout=25,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     output = proc.stdout or ""
     if proc.returncode != 0 or not output.strip():
         return None

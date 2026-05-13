@@ -1,10 +1,11 @@
 from io import BytesIO
 import json
 import os
+import subprocess
 
 from hic import db
 from hic.message_bus import list_messages, pending_wake_requests, send_message
-from hic.webapp import create_app, decorate_messages
+from hic.webapp import codex_usage_summary, create_app, decorate_messages
 
 
 def test_web_routes_and_forms(sample_root):
@@ -146,3 +147,15 @@ def test_only_latest_wake_message_shows_working(sample_root):
         assert by_id[second]["wake_progress"]["label"] == "working"
     finally:
         conn.close()
+
+
+def test_codex_status_timeout_falls_back_without_500(sample_root, monkeypatch):
+    monkeypatch.setenv("HIC_CODEX_CMD", "/bin/echo exec -")
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    summary = codex_usage_summary(sample_root)
+    assert summary["available"] is False
+    assert summary["label"] == "Codex /status: -"
